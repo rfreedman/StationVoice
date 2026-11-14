@@ -11,7 +11,6 @@ Logs append to backup/backup.log (and stderr).
 
 from __future__ import annotations
 
-import html
 import logging
 import os
 import sys
@@ -20,15 +19,15 @@ from datetime import datetime
 from pathlib import Path
 
 import boto3
-from bird import APIError, Bird
 from botocore.exceptions import ClientError
+
+from app.notify_email import notify_admins
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 SECRETS_ENV_PATH = ROOT_DIR / ".env.secrets"
 BACKUP_DIR = ROOT_DIR / "backup"
 LOG_PATH = BACKUP_DIR / "backup.log"
 DEFAULT_BACKUP_KEEP = 14
-DEFAULT_NOTIFY_FROM_NAME = "Repeater Announcements"
 BACKUP_TARGETS = (".env", "data", "config")
 ARCHIVE_GLOB = "dvra-repeater-backup_*.tar.gz"
 
@@ -95,54 +94,6 @@ def load_r2_config() -> tuple[str, str, str, str, int]:
         _require_env("R2_BUCKET_NAME"),
         _backup_keep(),
     )
-
-
-def notify_admins(subject: str, body: str) -> None:
-    """Email admins via Bird. Never raises; notify failures are logged only."""
-    api_key = os.environ.get("BIRD_API_KEY", "").strip()
-    sender = os.environ.get("BACKUP_NOTIFY_FROM", "").strip()
-    from_name = (
-        os.environ.get("BACKUP_NOTIFY_FROM_NAME", "").strip() or DEFAULT_NOTIFY_FROM_NAME
-    )
-    recipients = [
-        addr.strip()
-        for addr in os.environ.get("BACKUP_NOTIFY_TO", "").split(",")
-        if addr.strip()
-    ]
-    if not api_key:
-        logger.error("Skipping notify: BIRD_API_KEY is not set in %s", SECRETS_ENV_PATH.name)
-        return
-    if not sender:
-        logger.error(
-            "Skipping notify: BACKUP_NOTIFY_FROM is not set in %s", SECRETS_ENV_PATH.name
-        )
-        return
-    if not recipients:
-        logger.error(
-            "Skipping notify: BACKUP_NOTIFY_TO is not set in %s", SECRETS_ENV_PATH.name
-        )
-        return
-
-    html_body = "<p>" + html.escape(body).replace("\n", "<br>\n") + "</p>"
-    try:
-        with Bird() as client:
-            message = client.email.send(
-                from_={"email": sender, "name": from_name},
-                to=recipients,
-                subject=subject,
-                text=body,
-                html=html_body,
-            )
-        logger.info(
-            "Notify email sent (id=%s status=%s) to %s",
-            getattr(message, "id", "?"),
-            getattr(message, "status", "?"),
-            ", ".join(recipients),
-        )
-    except APIError as exc:
-        logger.error("Bird email request failed: %s", exc)
-    except Exception as exc:
-        logger.exception("Bird email notify failed: %s", exc)
 
 
 def create_backup_archive() -> Path:
