@@ -61,10 +61,10 @@ def init_radio_at_startup() -> None:
 
 
 def fail_startup(message: str) -> None:
-    """Log and terminate the process without raising (avoids lifespan tracebacks)."""
-    import logging
+    """Log, alert admins, and terminate without raising (avoids lifespan tracebacks)."""
+    from app.notify_email import alert_admins
 
-    logging.getLogger("app.server").error(message)
+    alert_admins("Startup failed", message, key="startup", debounce_seconds=0)
     _ = sys.stderr.write(message.rstrip() + "\n")
     _ = sys.stderr.flush()
     os._exit(1)

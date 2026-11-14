@@ -266,13 +266,27 @@ def run_check(*, manual: bool, root: Path | None = None) -> NewsState:
             state.split_failed_report = number
             _clear_report_cache(root, number)
         state.error = str(exc)
-        log.warning("Newsline check failed: %s", exc)
+        from app.notify_email import alert_admins
+
+        alert_admins(
+            "Newsline check failed",
+            f"Newsline check failed: {exc}",
+            exc=exc,
+            key="newsline-check",
+        )
     except Exception as exc:
         if downloaded and number is not None:
             state.split_failed_report = number
             _clear_report_cache(root, number)
         state.error = str(exc)
-        log.exception("Newsline check failed")
+        from app.notify_email import alert_admins
+
+        alert_admins(
+            "Newsline check failed",
+            "Newsline check failed with an unexpected error",
+            exc=exc,
+            key="newsline-check",
+        )
     finally:
         end_ui_progress()
         state.phase = "idle"

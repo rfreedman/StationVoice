@@ -112,11 +112,22 @@ def wait_until_clear(
 
 
 def _chunks_for_piece(deps: FireDeps, piece: Piece) -> list[PcmChunk]:
-    if piece.announcement is not None:
-        return materialize_chunks(deps.synthesize(piece.announcement))
-    if piece.path is None:
-        raise ValueError(f"Newsline piece {piece.label} has no audio")
-    return mp3_to_chunks(piece.path)
+    try:
+        if piece.announcement is not None:
+            return materialize_chunks(deps.synthesize(piece.announcement))
+        if piece.path is None:
+            raise ValueError(f"Newsline piece {piece.label} has no audio")
+        return mp3_to_chunks(piece.path)
+    except Exception as exc:
+        from app.notify_email import alert_admins
+
+        alert_admins(
+            "Newsline piece audio failed",
+            f"Failed to prepare Newsline piece {piece.label}",
+            exc=exc,
+            key="newsline-tx",
+        )
+        raise
 
 
 def _transmit_chunks(
@@ -149,12 +160,29 @@ def _play_emergency(deps: FireDeps, pending: PendingEmergency) -> FireOutcome:
     on_key = partial(deps.set_running, announcement, schedule.id) if deps.set_running else None
     try:
         _transmit_chunks(deps, materialize_chunks(deps.synthesize(announcement)), on_key=on_key)
-    except (TransmitAbortError, BrokenPipeError):
-        log.warning("Emergency %s aborted; DRA USB lost", label)
+    except (TransmitAbortError, BrokenPipeError) as exc:
+        from app.notify_email import alert_admins
+
+        alert_admins(
+            "Newsline emergency aborted: DRA USB lost",
+            f"Emergency {label} aborted; DRA USB lost",
+            exc=exc,
+            key="fire-usb",
+        )
         return FireOutcome.DROPPED_USB
     except ChannelBusyError:
         log.info("Emergency %s dropped; channel busy at PTT", label)
         return FireOutcome.DROPPED
+    except Exception as exc:
+        from app.notify_email import alert_admins
+
+        alert_admins(
+            "Newsline emergency transmit failed",
+            f"Unexpected failure transmitting emergency {label} during Newsline",
+            exc=exc,
+            key="newsline-tx",
+        )
+        raise
     if deps.update_schedule:
         deps.mark_last_run(announcement.id, schedule.id, _now(deps))
     log.info("Emergency %s transmitted during Newsline", label)
@@ -194,10 +222,28 @@ def _transmit_piece(
     chunks.extend(_chunks_for_piece(deps, piece))
     try:
         _transmit_chunks(deps, chunks, on_key=on_key)
-    except (TransmitAbortError, BrokenPipeError):
+    except (TransmitAbortError, BrokenPipeError) as exc:
+        from app.notify_email import alert_admins
+
+        alert_admins(
+            "Newsline aborted: DRA USB lost",
+            f"Newsline piece {piece.label} aborted; DRA USB lost",
+            exc=exc,
+            key="fire-usb",
+        )
         return FireOutcome.DROPPED_USB
     except ChannelBusyError:
         return FireOutcome.BUSY
+    except Exception as exc:
+        from app.notify_email import alert_admins
+
+        alert_admins(
+            "Newsline transmit failed",
+            f"Unexpected failure transmitting Newsline piece {piece.label}",
+            exc=exc,
+            key="newsline-tx",
+        )
+        raise
     return None
 
 

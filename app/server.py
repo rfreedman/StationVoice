@@ -8,7 +8,12 @@ import time
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exception_handlers import (
+    http_exception_handler,
+    request_validation_exception_handler,
+)
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
@@ -43,6 +48,7 @@ from app.sse_hub import (
     unsubscribe,
     unsubscribe_stats,
 )
+from app.notify_email import alert_admins
 from app.startup import StartupError, fail_startup, init_radio_at_startup
 from app.startup_gate import clear_startup_ready, is_startup_ready, mark_startup_ready
 from app.stats_sse import stats_broadcast_loop
@@ -145,6 +151,25 @@ app.add_middleware(
     same_site="lax",
     https_only=False,
 )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> Response:
+    """Email admins on unexpected request failures; leave HTTP/validation errors alone."""
+    if isinstance(exc, HTTPException):
+        return await http_exception_handler(request, exc)
+    if isinstance(exc, RequestValidationError):
+        return await request_validation_exception_handler(request, exc)
+    alert_admins(
+        "Unhandled HTTP exception",
+        f"{request.method} {request.url.path}",
+        exc=exc,
+        key="http-500",
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error"},
+    )
 
 
 @app.middleware("http")

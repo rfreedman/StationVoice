@@ -447,7 +447,18 @@ def handle_fire(ctx: FireContext, deps: FireDeps) -> FireOutcome:
                     deps.consume_baseline(schedule.id, ctx.slot_key)
             log.info("Fire transmitted; %s", who)
             return FireOutcome.TRANSMITTED
-        chunks = materialize_chunks(deps.synthesize(announcement))
+        try:
+            chunks = materialize_chunks(deps.synthesize(announcement))
+        except Exception as exc:
+            from app.notify_email import alert_admins
+
+            alert_admins(
+                "Fire synthesize failed",
+                f"Fire synthesize/materialize failed; {who}",
+                exc=exc,
+                key="fire-synthesize",
+            )
+            raise
 
         outcome = _defer_or_drop_on_busy(
             deps, ctx, announcement, schedule, label, phase="after synthesize"
@@ -474,14 +485,25 @@ def handle_fire(ctx: FireContext, deps: FireDeps) -> FireOutcome:
                 clear_seconds=deps.dra_clear_seconds,
                 on_ptt_keyed=on_key,
             )
-        except TransmitAbortError:
-            log.warning("Fire aborted; %s; DRA USB lost during playback", who)
+        except TransmitAbortError as exc:
+            from app.notify_email import alert_admins
+
+            alert_admins(
+                "Fire aborted: DRA USB lost",
+                f"Fire aborted; {who}; DRA USB lost during playback",
+                exc=exc,
+                key="fire-usb",
+            )
             fire_trace("Fire aborted (USB loss) label=%s slot=%s", label, ctx.slot_key)
             return FireOutcome.DROPPED_USB
-        except BrokenPipeError:
-            log.warning(
-                "Fire aborted; %s; DRA aplay pipe closed (USB unplugged during playback?)",
-                who,
+        except BrokenPipeError as exc:
+            from app.notify_email import alert_admins
+
+            alert_admins(
+                "Fire aborted: DRA USB lost",
+                f"Fire aborted; {who}; DRA aplay pipe closed (USB unplugged during playback?)",
+                exc=exc,
+                key="fire-usb",
             )
             fire_trace("Fire aborted (USB loss) label=%s slot=%s", label, ctx.slot_key)
             return FireOutcome.DROPPED_USB
@@ -525,14 +547,23 @@ def handle_fire(ctx: FireContext, deps: FireDeps) -> FireOutcome:
             )
             return FireOutcome.DEFERRED
         except Exception as exc:
+            from app.notify_email import alert_admins
+
             if usb_transmit_lost(deps.radio):
-                log.warning(
-                    "Fire aborted; %s; DRA USB lost during playback (%s)",
-                    who,
-                    exc,
+                alert_admins(
+                    "Fire aborted: DRA USB lost",
+                    f"Fire aborted; {who}; DRA USB lost during playback ({exc})",
+                    exc=exc,
+                    key="fire-usb",
                 )
                 fire_trace("Fire aborted (USB loss) label=%s slot=%s", label, ctx.slot_key)
                 return FireOutcome.DROPPED_USB
+            alert_admins(
+                "Fire transmit failed",
+                f"Unexpected fire transmit failure; {who}",
+                exc=exc,
+                key="fire-unexpected",
+            )
             raise
         if deps.update_schedule:
             deps.mark_last_run(announcement.id, schedule.id, deps.now)

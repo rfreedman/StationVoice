@@ -37,12 +37,24 @@ def _chained_oserror(exc: BaseException) -> bool:
 
 def raise_engine_http(exc: Exception, *, where: str) -> NoReturn:
     """Map a voice or I/O failure to HTTP. Unexpected errors are logged and become 500."""
+    from app.notify_email import alert_admins
+
     if isinstance(exc, VoiceError) and not _chained_oserror(exc):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if isinstance(exc, (VoiceError, OSError)):
-        log.warning("Engine I/O failure during %s: %s", where, exc)
+        alert_admins(
+            f"Engine I/O failure during {where}",
+            f"Engine I/O failure during {where}: {exc}",
+            exc=exc,
+            key=f"engine-io-{where}",
+        )
         raise HTTPException(status_code=502, detail=str(exc)) from exc
-    log.exception("Unexpected %s failure", where)
+    alert_admins(
+        f"Unexpected {where} failure",
+        f"Unexpected {where} failure",
+        exc=exc,
+        key=f"engine-500-{where}",
+    )
     raise HTTPException(status_code=500, detail="Internal Server Error") from exc
 
 

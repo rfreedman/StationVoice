@@ -219,16 +219,28 @@ def latest_report(feed: Feed) -> FeedReport | None:
 def download_file(url: str, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     temporary = dest.with_suffix(dest.suffix + ".partial")
-    response = requests.get(url, stream=True, timeout=120)
-    if response.status_code != 200:
-        raise OSError(f"Download failed for {url} (HTTP {response.status_code})")
     try:
-        with temporary.open("wb") as handle:
-            for chunk in response.iter_content(chunk_size=64 * 1024):
-                if chunk:
-                    _ = handle.write(chunk)
-        _ = temporary.replace(dest)
-    finally:
-        if temporary.exists():
-            temporary.unlink()
+        response = requests.get(url, stream=True, timeout=120)
+        if response.status_code != 200:
+            raise OSError(f"Download failed for {url} (HTTP {response.status_code})")
+        try:
+            with temporary.open("wb") as handle:
+                for chunk in response.iter_content(chunk_size=64 * 1024):
+                    if chunk:
+                        _ = handle.write(chunk)
+            _ = temporary.replace(dest)
+        finally:
+            if temporary.exists():
+                temporary.unlink()
+    except Exception as exc:
+        from app.notify_email import alert_admins
+
+        # Same debounce key as poll.run_check so one failed fetch is one email.
+        alert_admins(
+            "Newsline download failed",
+            f"Failed to download {url} to {dest}",
+            exc=exc,
+            key="newsline-check",
+        )
+        raise
     log.info("Saved %s", dest)

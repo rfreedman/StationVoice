@@ -86,8 +86,15 @@ def refresh_portaudio_device_list() -> None:
             log.warning("PortAudio re-init after USB replug failed", exc_info=True)
             try:
                 initialize()
-            except Exception:
-                log.error("PortAudio initialize recovery failed", exc_info=True)
+            except Exception as exc:
+                from app.notify_email import alert_admins
+
+                alert_admins(
+                    "PortAudio initialize recovery failed",
+                    "PortAudio initialize recovery failed after USB replug",
+                    exc=exc,
+                    key="portaudio-init",
+                )
 
 
 def list_dra_output_devices() -> list[DraOutputDevice]:

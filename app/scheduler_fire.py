@@ -431,7 +431,13 @@ def _run_manual_trigger_body(
         retry_at = now + timedelta(seconds=delay)
         defer(retry_at, replace(ctx, defer_kind="busy"))
         if defer_job_missing():
-            log.error("Manual defer job %s missing after skipped_lock retry", jid)
+            from app.notify_email import alert_admins
+
+            alert_admins(
+                "Manual defer job missing",
+                f"Manual defer job {jid} missing after skipped_lock retry",
+                key="scheduler-manual-defer",
+            )
             return _finish_manual_trigger(
                 schedule_id, announcement, schedule, FireOutcome.DROPPED, drop_reason="scheduler_error"
             )
@@ -444,7 +450,13 @@ def _run_manual_trigger_body(
     if result == FireOutcome.DEFERRED:
         _clear_running()
         if defer_job_missing():
-            log.error("Manual defer job %s missing", jid)
+            from app.notify_email import alert_admins
+
+            alert_admins(
+                "Manual defer job missing",
+                f"Manual defer job {jid} missing",
+                key="scheduler-manual-defer",
+            )
             return _finish_manual_trigger(
                 schedule_id, announcement, schedule, FireOutcome.DROPPED, drop_reason="scheduler_error"
             )

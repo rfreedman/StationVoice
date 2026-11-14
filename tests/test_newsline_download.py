@@ -172,3 +172,32 @@ def test_latest_report_is_none_when_audio_and_script_are_missing() -> None:
     )
     assert latest_report(feed) is None
     assert entry_download_urls(_entries(feed)[0]) == (None, None)
+
+
+def test_download_file_alerts_admins_on_http_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from unittest.mock import MagicMock
+
+    import requests
+
+    from app.newsline.download import download_file
+
+    alert = MagicMock()
+    monkeypatch.setattr("app.notify_email.alert_admins", alert)
+    response = MagicMock()
+    response.status_code = 404
+
+    def _get(_url: str, *, stream: bool = False, timeout: float | int = 0) -> MagicMock:
+        _ = (stream, timeout)
+        return response
+
+    monkeypatch.setattr(requests, "get", _get)
+
+    dest = tmp_path / "report.mp3"
+    with pytest.raises(OSError, match="HTTP 404"):
+        download_file("https://example.com/missing.mp3", dest)
+
+    alert.assert_called_once()
+    assert alert.call_args.kwargs["key"] == "newsline-check"
+    assert "https://example.com/missing.mp3" in alert.call_args.args[1]

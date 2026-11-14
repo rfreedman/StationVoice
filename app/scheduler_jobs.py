@@ -74,7 +74,13 @@ def add_defer_job(
 ) -> bool:
     sched = get_scheduler()
     if sched is None:
-        log.error("Cannot defer fire for %s: scheduler not running", slot_key)
+        from app.notify_email import alert_admins
+
+        alert_admins(
+            "Cannot defer fire: scheduler not running",
+            f"Cannot defer fire for {slot_key}: scheduler not running",
+            key="scheduler-defer",
+        )
         return False
     _ = sched.add_job(
         func,
@@ -104,7 +110,13 @@ def sync_jobs() -> None:
         return
     runner = get_scheduled_fire_runner()
     if runner is None:
-        log.error("Cannot sync slot jobs: scheduled fire runner not registered")
+        from app.notify_email import alert_admins
+
+        alert_admins(
+            "Cannot sync slot jobs",
+            "Cannot sync slot jobs: scheduled fire runner not registered",
+            key="scheduler-sync",
+        )
         return
     document = get_store().document()
     zone = zone_for(document.settings.timezone)

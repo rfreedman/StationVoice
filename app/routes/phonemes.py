@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from typing import NoReturn
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -12,6 +13,7 @@ from app.config import TEXT_CHARS_CEILING, enforce_text_limit
 from app.deps import AdminUser, AuthUser
 from app.json_io import DataFileError
 from app.model_common import normalize_announcement_text
+from app.notify_email import alert_admins
 from app.phoneme_dict import get_phoneme_dictionary
 from app.phoneme_text import PhonemeReplacement, PhonemeTextError, matching_entries
 from app.routes.speak import raise_engine_http
@@ -96,12 +98,22 @@ def _refresh_dictionary_users() -> None:
         notify_home_data_changed()
 
 
+def _data_file_http(exc: DataFileError, *, where: str) -> NoReturn:
+    alert_admins(
+        f"Phoneme data file error during {where}",
+        str(exc),
+        exc=exc,
+        key="phonemes-data",
+    )
+    raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 @router.get("/api/phonemes")
 def list_phonemes(_user: AuthUser) -> PhonemeDictionaryOut:
     try:
         entries = get_phoneme_dictionary().compiled()
     except DataFileError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        _data_file_http(exc, where="list")
     return PhonemeDictionaryOut(
         entries=[_entry_out(entry) for entry in entries]
     )
@@ -114,7 +126,7 @@ def replace_phonemes(body: PhonemeDictionaryIn, _admin: AdminUser) -> PhonemeDic
     except PhonemeTextError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except DataFileError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        _data_file_http(exc, where="replace")
     schedule_dictionary_refresh()
     return PhonemeDictionaryOut(
         entries=[_entry_out(entry) for entry in entries]
@@ -142,7 +154,7 @@ def match_text(body: IpaIn, _user: AuthUser) -> PhonemeDictionaryOut:
     try:
         entries = get_phoneme_dictionary().compiled()
     except DataFileError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        _data_file_http(exc, where="matches")
     matched = matching_entries(text, entries, use_dictionary=True)
     return PhonemeDictionaryOut(
         entries=[_entry_out(entry) for entry in matched]

@@ -5,6 +5,9 @@ from __future__ import annotations
 import html
 import logging
 import os
+import threading
+import time
+import traceback
 from collections.abc import Sequence
 
 from bird import APIError, Bird
@@ -12,6 +15,10 @@ from bird import APIError, Bird
 logger = logging.getLogger(__name__)
 
 DEFAULT_FROM_NAME = "Repeater Announcements"
+DEFAULT_ALERT_DEBOUNCE_SECONDS = 15 * 60
+
+_debounce_lock = threading.Lock()
+_last_alert_at: dict[str, float] = {}
 
 
 def _normalize_recipients(recipients: Sequence[str]) -> list[str]:
@@ -68,3 +75,46 @@ def notify_admins(subject: str, body: str) -> None:
         logger.error("Skipping notify: ADMIN_EMAILS is not set")
         return
     send_email(subject, body, recipients)
+
+
+def _should_send_alert(key: str, debounce_seconds: float) -> bool:
+    """Return True if this key is outside the debounce window; record send time if so."""
+    now = time.monotonic()
+    with _debounce_lock:
+        last = _last_alert_at.get(key)
+        if last is not None and (now - last) < debounce_seconds:
+            return False
+        _last_alert_at[key] = now
+        return True
+
+
+def alert_admins(
+    subject: str,
+    body: str,
+    *,
+    exc: BaseException | None = None,
+    key: str | None = None,
+    debounce_seconds: float = DEFAULT_ALERT_DEBOUNCE_SECONDS,
+) -> None:
+    """Log an operational error and email admins (debounced). Never raises."""
+    debounce_key = key or subject
+    if exc is not None:
+        logger.error("%s", body, exc_info=exc)
+        detail = f"{body.rstrip()}\n\n{type(exc).__name__}: {exc}"
+        tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+        if tb.strip():
+            detail = f"{detail}\n\n{tb}"
+    else:
+        logger.error("%s", body)
+        detail = body
+
+    if not _should_send_alert(debounce_key, debounce_seconds):
+        logger.info("Skipping admin alert (debounced key=%s): %s", debounce_key, subject)
+        return
+    notify_admins(subject, detail)
+
+
+def clear_alert_debounce_for_tests() -> None:
+    """Reset debounce state (tests only)."""
+    with _debounce_lock:
+        _last_alert_at.clear()

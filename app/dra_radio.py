@@ -239,6 +239,13 @@ class DraRadio:
             log.warning(
                 "DRA CM119 HID not found (USB unplugged?) — COS/PTT idle until reconnect"
             )
+            from app.notify_email import alert_admins
+
+            alert_admins(
+                "DRA USB HID absent",
+                "DRA CM119 HID not found (USB unplugged?) — COS/PTT idle until reconnect",
+                key="usb-hid-absent",
+            )
         if abort_playback:
             self.abort_transmit_due_to_usb_loss()
 
@@ -515,8 +522,15 @@ class DraRadio:
                 for dev in keyed_devices:
                     try:
                         set_gpio3_ptt(dev, False)
-                    except OSError:
-                        log.error("PTT unkey after failed key also failed", exc_info=True)
+                    except OSError as unkey_err:
+                        from app.notify_email import alert_admins
+
+                        alert_admins(
+                            "PTT unkey failed after key failure",
+                            "PTT unkey after failed key also failed — stuck PTT risk",
+                            exc=unkey_err,
+                            key="ptt-unkey-failed",
+                        )
                 self._ptt_devices = []
                 self._ptt_keyed = False
                 raise ChannelBusyError("PTT HID unavailable") from err

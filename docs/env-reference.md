@@ -106,3 +106,16 @@ Example with custom URLs (commented — do not paste live secrets into the defau
 
 Optional `.env` in the project root (see [`.env.example`](../.env.example)). Variables already set in the shell override that file.
 
+### Admin email (Bird)
+
+Operational failures (startup, fire/USB, scheduler, Newsline check, unexpected HTTP 500s) call `alert_admins`, which emails `ADMIN_EMAILS` via Bird. Soft-fail: missing config only logs; the app keeps running. Put these in `.env.secrets` (see [`.env.secrets.example`](../.env.secrets.example)), not in the main `.env`.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `BIRD_API_KEY` | *(required to send)* | Bird API key |
+| `EMAIL_FROM` | *(required to send)* | From address |
+| `EMAIL_FROM_NAME` | `Repeater Announcements` | From display name |
+| `ADMIN_EMAILS` | *(required to send)* | Comma-separated admin recipients |
+
+Duplicate alerts with the same debounce key are suppressed for 15 minutes.
+

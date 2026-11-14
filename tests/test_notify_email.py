@@ -73,3 +73,56 @@ def test_send_email_skips_when_no_recipients(monkeypatch: pytest.MonkeyPatch) ->
     notify_email.send_email("Subject", "Body", ["  ", ""])
 
     send.assert_not_called()
+
+
+@pytest.fixture(autouse=True)
+def _clear_alert_debounce() -> None:
+    notify_email.clear_alert_debounce_for_tests()
+
+
+def test_alert_admins_notifies_and_includes_exc(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BIRD_API_KEY", "bk_test")
+    monkeypatch.setenv("EMAIL_FROM", "repeater@example.com")
+    monkeypatch.setenv("ADMIN_EMAILS", "ops@example.com")
+    send = _patch_bird(monkeypatch)
+
+    notify_email.alert_admins(
+        "Boom",
+        "Something broke",
+        exc=RuntimeError("nope"),
+        key="test-boom",
+    )
+
+    send.assert_called_once()
+    assert send.call_args.kwargs["subject"] == "Boom"
+    assert "Something broke" in send.call_args.kwargs["text"]
+    assert "RuntimeError: nope" in send.call_args.kwargs["text"]
+
+
+def test_alert_admins_debounces_same_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BIRD_API_KEY", "bk_test")
+    monkeypatch.setenv("EMAIL_FROM", "repeater@example.com")
+    monkeypatch.setenv("ADMIN_EMAILS", "ops@example.com")
+    send = _patch_bird(monkeypatch)
+
+    notify_email.alert_admins("One", "first", key="same")
+    notify_email.alert_admins("Two", "second", key="same")
+
+    send.assert_called_once()
+    assert send.call_args.kwargs["subject"] == "One"
+
+
+def test_alert_admins_debounce_seconds_zero_always_sends(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BIRD_API_KEY", "bk_test")
+    monkeypatch.setenv("EMAIL_FROM", "repeater@example.com")
+    monkeypatch.setenv("ADMIN_EMAILS", "ops@example.com")
+    send = _patch_bird(monkeypatch)
+
+    notify_email.alert_admins("A", "a", key="startup", debounce_seconds=0)
+    notify_email.alert_admins("B", "b", key="startup", debounce_seconds=0)
+
+    assert send.call_count == 2
