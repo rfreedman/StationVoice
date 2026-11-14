@@ -11,9 +11,11 @@ from app import notify_email
 def _patch_bird(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     send = MagicMock(return_value=SimpleNamespace(id="msg_1", status="accepted"))
     client = MagicMock()
-    client.email.send = send
-    client.__enter__.return_value = client
-    client.__exit__.return_value = False
+    setattr(client, "email", SimpleNamespace(send=send))
+    enter = MagicMock(return_value=client)
+    exit_ = MagicMock(return_value=False)
+    setattr(client, "__enter__", enter)
+    setattr(client, "__exit__", exit_)
     bird_cls = MagicMock(return_value=client)
     monkeypatch.setattr(notify_email, "Bird", bird_cls)
     return send
