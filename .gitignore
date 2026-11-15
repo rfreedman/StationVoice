@@ -33,3 +33,4 @@ app/.cache
 
 backup/
 
+/scripts/scripts-local/
