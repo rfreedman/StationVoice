@@ -82,6 +82,34 @@ def _clear_alert_debounce() -> None:
     notify_email.clear_alert_debounce_for_tests()
 
 
+def test_notify_admins_lifecycle_skips_quietly_without_recipients(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BIRD_API_KEY", "bk_test")
+    monkeypatch.setenv("EMAIL_FROM", "repeater@example.com")
+    monkeypatch.delenv("ADMIN_EMAILS", raising=False)
+    send = _patch_bird(monkeypatch)
+
+    notify_email.notify_admins_lifecycle("Started", "ready")
+
+    send.assert_not_called()
+
+
+def test_notify_admins_lifecycle_sends_when_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BIRD_API_KEY", "bk_test")
+    monkeypatch.setenv("EMAIL_FROM", "repeater@example.com")
+    monkeypatch.setenv("ADMIN_EMAILS", "ops@example.com")
+    send = _patch_bird(monkeypatch)
+
+    notify_email.notify_admins_lifecycle("Started", "ready")
+
+    send.assert_called_once()
+    assert send.call_args.kwargs["subject"] == "Started"
+    assert send.call_args.kwargs["text"] == "ready"
+
+
 def test_alert_admins_notifies_and_includes_exc(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

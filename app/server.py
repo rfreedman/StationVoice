@@ -87,12 +87,23 @@ async def _complete_startup(started: float, stats_stop: asyncio.Event) -> asynci
     except Exception as exc:
         log.exception("Unexpected startup failure")
         fail_startup(str(exc) or exc.__class__.__name__)
-    log.info(
-        "Startup complete in %.1fs (radio mode: %s)",
-        time.perf_counter() - started,
-        active_radio_mode_label(),
-    )
+    elapsed = time.perf_counter() - started
+    radio_mode = active_radio_mode_label()
+    log.info("Startup complete in %.1fs (radio mode: %s)", elapsed, radio_mode)
     mark_startup_ready()
+    from app.notify_email import notify_admins_lifecycle
+
+    notify_admins_lifecycle(
+        f"{app_config.STATION_CALL} announcements started",
+        "\n".join(
+            [
+                f"{app_config.STATION_CALL} ({app_config.STATION_NAME}) is ready.",
+                f"Version: {__version__}",
+                f"Radio mode: {radio_mode}",
+                f"Startup time: {elapsed:.1f}s",
+            ]
+        ),
+    )
     return asyncio.create_task(stats_broadcast_loop(stats_stop))
 
 
@@ -123,6 +134,18 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     try:
         yield
     finally:
+        log.info("Shutting down")
+        from app.notify_email import notify_admins_lifecycle
+
+        notify_admins_lifecycle(
+            f"{app_config.STATION_CALL} announcements stopped",
+            "\n".join(
+                [
+                    f"{app_config.STATION_CALL} ({app_config.STATION_NAME}) is shutting down.",
+                    f"Version: {__version__}",
+                ]
+            ),
+        )
         stats_stop.set()
         shutdown_sse_streams()
         if stats_task is not None:

@@ -81,6 +81,37 @@ def test_fail_startup_alerts_before_exit(monkeypatch: pytest.MonkeyPatch) -> Non
     assert exit_calls == [1]
 
 
+def test_lifespan_emails_start_and_stop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fastapi.testclient import TestClient
+
+    from app.registry import EngineRegistry
+    from app.server import app
+
+    lifecycle = MagicMock()
+    monkeypatch.setattr("app.notify_email.notify_admins_lifecycle", lifecycle)
+    monkeypatch.setattr("app.server.init_radio_at_startup", lambda: None)
+
+    def _preload(_self: EngineRegistry) -> list[str]:
+        return []
+
+    monkeypatch.setattr(EngineRegistry, "preload", _preload)
+    monkeypatch.setattr("app.server.warm_all", lambda: None)
+    monkeypatch.setattr("app.server.start_scheduler", lambda: None)
+    monkeypatch.setattr("app.server.stop_scheduler", lambda: None)
+
+    with TestClient(app):
+        pass
+
+    subjects: list[str] = []
+    for call in lifecycle.call_args_list:
+        args = cast(tuple[object, ...], call.args)
+        subjects.append(str(args[0]).lower())
+    assert any("started" in subject for subject in subjects)
+    assert any("stopped" in subject for subject in subjects)
+
+
 def test_add_defer_job_alerts_when_scheduler_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

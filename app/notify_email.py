@@ -64,15 +64,28 @@ def send_email(subject: str, body: str, recipients: Sequence[str]) -> None:
         logger.exception("Bird email send failed: %s", exc)
 
 
-def notify_admins(subject: str, body: str) -> None:
-    """Send email to ADMIN_EMAILS (comma-separated). Never raises."""
-    recipients = [
+def _admin_recipients() -> list[str]:
+    return [
         addr.strip()
         for addr in os.environ.get("ADMIN_EMAILS", "").split(",")
         if addr.strip()
     ]
+
+
+def notify_admins(subject: str, body: str) -> None:
+    """Send email to ADMIN_EMAILS (comma-separated). Never raises."""
+    recipients = _admin_recipients()
     if not recipients:
         logger.error("Skipping notify: ADMIN_EMAILS is not set")
+        return
+    send_email(subject, body, recipients)
+
+
+def notify_admins_lifecycle(subject: str, body: str) -> None:
+    """Start/stop notices. Quiet when ADMIN_EMAILS is unset (avoids test noise). Never raises."""
+    recipients = _admin_recipients()
+    if not recipients:
+        logger.info("Skipping lifecycle email: ADMIN_EMAILS is not set")
         return
     send_email(subject, body, recipients)
 

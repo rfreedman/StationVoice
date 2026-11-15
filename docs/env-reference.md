@@ -108,7 +108,7 @@ Optional `.env` in the project root (see [`.env.example`](../.env.example)). Var
 
 ### Admin email (Bird)
 
-Operational failures (startup, fire/USB, scheduler, Newsline check, unexpected HTTP 500s) call `alert_admins`, which emails `ADMIN_EMAILS` via Bird. Soft-fail: missing config only logs; the app keeps running. Put these in `.env.secrets` (see [`.env.secrets.example`](../.env.secrets.example)), not in the main `.env`. The app loads `.env.secrets` at startup (shell env still wins). Admin → Environment can edit `ADMIN_EMAILS` only; other secrets stay file-only.
+Operational failures (startup, fire/USB, scheduler, Newsline check, unexpected HTTP 500s) call `alert_admins`, which emails `ADMIN_EMAILS` via Bird. Successful application start and stop also email admins (`notify_admins_lifecycle`). Soft-fail: missing config only logs; the app keeps running. Put these in `.env.secrets` (see [`.env.secrets.example`](../.env.secrets.example)), not in the main `.env`. The app loads `.env.secrets` at startup (shell env still wins). Admin → Environment can edit `ADMIN_EMAILS` only; other secrets stay file-only.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
