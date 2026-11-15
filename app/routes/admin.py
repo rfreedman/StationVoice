@@ -40,6 +40,7 @@ class ConfigSaveIn(BaseModel):
     values: RuntimeConfigValues
     short_description: str = ""
     long_description: str = ""
+    admin_emails: str = ""
 
 
 class ConfigRevertIn(BaseModel):
@@ -78,7 +79,12 @@ def post_admin_config(body: ConfigSaveIn, _admin: AdminUser) -> ConfigState:
     try:
         short = clean_short(body.short_description)
         long = clean_long(body.long_description)
-        document = save_config(body.values, short, long)
+        document = save_config(
+            body.values,
+            short,
+            long,
+            admin_emails=body.admin_emails,
+        )
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail=_validation_detail(exc)) from exc
     except ValueError as exc:

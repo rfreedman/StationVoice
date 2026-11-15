@@ -160,6 +160,8 @@ class ConfigState(BaseModel):
     history: list[ConfigEntrySummary]
     generation: int
     changed: bool = True
+    # Lives in .env.secrets only; not part of configuration history / revert.
+    admin_emails: str = ""
 
 
 def config_generation() -> int:
@@ -187,6 +189,53 @@ def dotenv_path() -> Path:
     if os.environ.get("TTS_SKIP_DOTENV", "").strip().lower() in {"1", "true", "yes", "on"}:
         raise RuntimeError("Refusing to write .env while TTS_SKIP_DOTENV is set; set TTS_DOTENV_PATH")
     return ROOT_DIR / ".env"
+
+
+def secrets_dotenv_path() -> Path:
+    """Path to ``.env.secrets`` (Bird / R2 / ADMIN_EMAILS). Tests override with TTS_SECRETS_DOTENV_PATH."""
+    override = os.environ.get("TTS_SECRETS_DOTENV_PATH", "").strip()
+    if override:
+        return Path(override).expanduser()
+    if os.environ.get("TTS_SKIP_DOTENV", "").strip().lower() in {"1", "true", "yes", "on"}:
+        raise RuntimeError(
+            "Refusing to write .env.secrets while TTS_SKIP_DOTENV is set; set TTS_SECRETS_DOTENV_PATH"
+        )
+    return ROOT_DIR / ".env.secrets"
+
+
+def read_admin_emails() -> str:
+    """Current ADMIN_EMAILS from the process environment (display form)."""
+    parts = [
+        part.strip()
+        for part in os.environ.get("ADMIN_EMAILS", "").split(",")
+        if part.strip()
+    ]
+    return ", ".join(parts)
+
+
+def normalize_admin_emails(raw: str) -> str:
+    """Comma-separated addresses; empty is allowed. Rejects line breaks and obvious junk."""
+    text = raw.strip()
+    if not text:
+        return ""
+    if "\n" in text or "\r" in text:
+        raise ValueError("Admin emails cannot contain line breaks")
+    parts = [part.strip() for part in text.split(",") if part.strip()]
+    for addr in parts:
+        if "@" not in addr or addr.startswith("@") or addr.endswith("@"):
+            raise ValueError(f"Invalid admin email address: {addr}")
+    return ", ".join(parts)
+
+
+def apply_admin_emails(raw: str) -> str:
+    """Validate, write ADMIN_EMAILS to .env.secrets and os.environ. Returns normalized value."""
+    normalized = normalize_admin_emails(raw)
+    if '"' in normalized:
+        raise ValueError("Admin emails cannot contain double quotes")
+    os.environ["ADMIN_EMAILS"] = normalized
+    # Quote the list so commas stay part of one .env.secrets value.
+    update_dotenv(secrets_dotenv_path(), {"ADMIN_EMAILS": f'"{normalized}"'})
+    return normalized
 
 
 def history_path() -> Path:
@@ -237,12 +286,16 @@ def save_config(
     values: RuntimeConfigValues,
     short_description: str,
     long_description: str,
+    *,
+    admin_emails: str | None = None,
 ) -> ConfigHistoryFile:
     short = clean_short(short_description)
     long = clean_long(long_description)
     checked = RuntimeConfigValues.model_validate(values.model_dump())
     with _lock:
         _apply(checked)
+        if admin_emails is not None:
+            _ = apply_admin_emails(admin_emails)
         document = _read_history()
         entries = list(document.entries) if document is not None else []
         entry = _make_entry(checked, short, long)
@@ -294,6 +347,7 @@ def config_state(document: ConfigHistoryFile, *, changed: bool) -> ConfigState:
         ],
         generation=config_generation(),
         changed=changed,
+        admin_emails=read_admin_emails(),
     )
 
 

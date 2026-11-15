@@ -76,6 +76,8 @@ def _require_env(name: str) -> str:
 # Tests set TTS_SKIP_DOTENV=1 so a developer's .env cannot change their results.
 if not _env_flag("TTS_SKIP_DOTENV"):
     _load_dotenv(ROOT_DIR / ".env")
+    # Ops secrets (Bird, R2, ADMIN_EMAILS). Shell env still wins over file values.
+    _load_dotenv(ROOT_DIR / ".env.secrets")
 
 VOICES_DIR = Path(os.environ.get("TTS_VOICES_DIR", ROOT_DIR / "voices")).expanduser()
 PIPER_VOICES_DIR = VOICES_DIR / "piper"

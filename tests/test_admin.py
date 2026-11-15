@@ -37,11 +37,17 @@ def _save(
     values: dict[str, object],
     short: str,
     long: str = "",
+    *,
+    admin_emails: str | None = None,
 ) -> ConfigState:
-    res = client.post(
-        "/api/admin/config",
-        json={"values": values, "short_description": short, "long_description": long},
-    )
+    body: dict[str, object] = {
+        "values": values,
+        "short_description": short,
+        "long_description": long,
+    }
+    if admin_emails is not None:
+        body["admin_emails"] = admin_emails
+    res = client.post("/api/admin/config", json=body)
     assert res.status_code == 200, res.text
     return ConfigState.model_validate(json_dict(res))
 
@@ -91,6 +97,64 @@ def test_save_updates_page_history_and_dotenv(client: TestClient) -> None:
     page_headers = client.get("/").headers
     assert page_headers["x-config-generation"] == "1"
     assert page_headers["cache-control"] == "no-store"
+
+
+def test_admin_emails_save_to_secrets_only_and_survive_revert(client: TestClient) -> None:
+    env_path = Path(os.environ["TTS_DOTENV_PATH"])
+    secrets_path = Path(os.environ["TTS_SECRETS_DOTENV_PATH"])
+    _ = env_path.write_text("STATION_NAME=Club\n", encoding="utf-8")
+    _ = secrets_path.write_text(
+        "# keep secrets header\nBIRD_API_KEY=bk_keep\nADMIN_EMAILS=old@example.com\n",
+        encoding="utf-8",
+    )
+    os.environ["ADMIN_EMAILS"] = "old@example.com"
+
+    state = _state(client)
+    assert state.admin_emails == "old@example.com"
+    values = _values(state)
+    values["station_name"] = "Alert Club"
+    first = _save(
+        client,
+        values,
+        "With emails",
+        admin_emails=" one@example.com , two@example.com ",
+    )
+    assert first.admin_emails == "one@example.com, two@example.com"
+    assert os.environ["ADMIN_EMAILS"] == "one@example.com, two@example.com"
+
+    secrets_text = secrets_path.read_text(encoding="utf-8")
+    assert "# keep secrets header" in secrets_text
+    assert "BIRD_API_KEY=bk_keep" in secrets_text
+    assert 'ADMIN_EMAILS="one@example.com, two@example.com"' in secrets_text
+    assert "BIRD_API_KEY" not in env_path.read_text(encoding="utf-8")
+    assert "ADMIN_EMAILS" not in env_path.read_text(encoding="utf-8")
+
+    values["station_name"] = "Later Club"
+    second = _save(client, values, "Later", admin_emails="ops@example.com")
+    assert second.admin_emails == "ops@example.com"
+
+    reverted = client.post("/api/admin/config/revert", json={"id": first.current.id})
+    assert reverted.status_code == 200, reverted.text
+    body = ConfigState.model_validate(json_dict(reverted))
+    assert body.current.values.station_name == "Alert Club"
+    # Revert must not roll ADMIN_EMAILS back with history.
+    assert body.admin_emails == "ops@example.com"
+    assert os.environ["ADMIN_EMAILS"] == "ops@example.com"
+    assert 'ADMIN_EMAILS="ops@example.com"' in secrets_path.read_text(encoding="utf-8")
+
+
+def test_admin_emails_reject_invalid_address(client: TestClient) -> None:
+    values = _values(_state(client))
+    res = client.post(
+        "/api/admin/config",
+        json={
+            "values": values,
+            "short_description": "bad emails",
+            "admin_emails": "not-an-email",
+        },
+    )
+    assert res.status_code == 400
+    assert "Invalid admin email" in res.text
 
 
 def test_newsline_interval_save_rearms_and_rejects_a_too_small_value(

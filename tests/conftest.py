@@ -68,8 +68,10 @@ def restore_operator_settings() -> Iterator[None]:
     from app.scheduler_instance import get_scheduler
 
     snapshot = admin_config.current_values()
+    emails_snapshot = os.environ.get("ADMIN_EMAILS", "")
     generation = admin_config.config_generation()
     yield
+    os.environ["ADMIN_EMAILS"] = emails_snapshot
     assign_live_settings(
         station_call=snapshot.station_call,
         station_name=snapshot.station_name,
@@ -107,6 +109,7 @@ def restore_operator_settings() -> Iterator[None]:
 def isolate_admin_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Admin saves must not touch the developer .env, history, or branding files."""
     monkeypatch.setenv("TTS_DOTENV_PATH", str(tmp_path / "runtime.env"))
+    monkeypatch.setenv("TTS_SECRETS_DOTENV_PATH", str(tmp_path / "runtime.secrets.env"))
     monkeypatch.setenv("TTS_CONFIG_HISTORY_PATH", str(tmp_path / "config_history.json"))
     monkeypatch.setenv("TTS_BRANDING_DIR", str(tmp_path / "branding"))
 

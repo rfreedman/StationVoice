@@ -3151,6 +3151,7 @@ async function refreshAdminConfig() {
   const values = current.values || {};
   fillConfigForm(values);
   await fillVoiceOptions(values.default_voice || "");
+  document.getElementById("cfg-admin-emails").value = payload.admin_emails || "";
   document.getElementById("cfg-short").value = "";
   document.getElementById("cfg-long").value = "";
   const when = formatSavedAt(current.saved_at, values.timezone);
@@ -3221,6 +3222,7 @@ async function saveAdminConfig() {
       values: readConfigForm(),
       short_description: document.getElementById("cfg-short").value,
       long_description: document.getElementById("cfg-long").value,
+      admin_emails: document.getElementById("cfg-admin-emails").value.trim(),
     }),
   });
   let payload = {};

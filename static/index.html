@@ -192,7 +192,7 @@
           <section class="panel">
             <h2 class="subhead">Environment</h2>
             <p class="lede tight">
-              These settings apply as soon as you save. Open browsers reload so the new station name, title, and defaults show up. Radio hardware, file paths, the web port, and the session secret stay in the server .env file and still need a restart.
+              These settings apply as soon as you save. Open browsers reload so the new station name, title, and defaults show up. Radio hardware, file paths, the web port, and the session secret stay in the server .env file and still need a restart. Admin alert recipients are stored in .env.secrets (not in configuration history).
             </p>
             <div class="config-current">
               <p class="lede tight" id="config-current-when"></p>
@@ -305,6 +305,15 @@
               Verbose transmit logs
             </label>
             </section>
+
+          <section class="panel">
+            <h2 class="subhead">Admin alerts</h2>
+            <p class="lede tight">Comma-separated addresses for operational error emails. Stored only in .env.secrets; not reverted with previous configurations. Bird API credentials stay in that file and are not editable here.</p>
+            <section class="voice-row">
+              <label class="label" for="cfg-admin-emails">Admin email recipients</label>
+              <input id="cfg-admin-emails" type="text" maxlength="2000" autocomplete="off" placeholder="ops@example.com, other@example.com" />
+            </section>
+          </section>
 
            <section class="panel">
             <h2 class="subhead">Sign-in</h2>
