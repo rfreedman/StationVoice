@@ -1,26 +1,69 @@
 # Deploying
 
-The Linux host runs the app the same way as dev: a git clone, uv, and `./serve.sh`. Install uv once on that host (it goes in `~/.local/bin`):
+The Linux host runs the app from a git clone via a **systemd** unit whose `ExecStart` is `./serve.sh` (uv sync + venv). Install uv once on that host (it goes in `~/.local/bin`):
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
+Defaults used by `scripts/deploy`, `start-remote`, `stop-remote`, and `tail-nuc`:
+
+| Env | Default |
+| --- | --- |
+| `DEPLOY_HOST` | `dvra-announcements` |
+| `DEPLOY_PATH` | `/home/announce/dvra-repeater-announcements` |
+| `SERVICE_NAME` | `dvra-announcements` |
+
+SSH `User` comes from your `~/.ssh/config` (typically `announce`).
+
 From the dev machine, deploy whatever is pushed to `origin/main`:
 
 ```bash
-scripts/deploy                    # default host repeater-nuc
-scripts/deploy other-host         # or DEPLOY_HOST=other-host; DEPLOY_PATH overrides the repo path
+scripts/deploy                         # default host dvra-announcements
+scripts/deploy other-host              # or DEPLOY_HOST=other-host; DEPLOY_PATH / SERVICE_NAME override
 ```
 
-`repeater-nuc` is the SSH hostname of the Linux computer used for this station. It is not a requirement that the host be a particular kind of PC.
+### systemd start / stop
 
-The script refuses to run with uncommitted or unpushed local changes. On the Linux host it checks that uv is present, that the clone is clean, and that `origin/main` fast-forwards, all before touching the app. If `origin/main` has new commits, its `pyproject.toml` version must be greater than the one the Linux host is running (bump with `uv version --bump patch`, commit, push); otherwise the deploy stops and leaves the app running. A redeploy with no new commits just restarts the app. Then it stops the running `python -m app serve` with SIGTERM, pulls, and starts `./serve.sh` in the background, which syncs dependencies. It waits for `Startup complete` in the log and warns if the radio mode is `stub`. Background output goes to `data/logs/serve.out` on the Linux host. If the app does not stop within `DEPLOY_STOP_TIMEOUT` seconds (default 30), the deploy aborts without updating; it never SIGKILLs the app, because that can leave PTT keyed. Startup must log `Startup complete` within `DEPLOY_START_TIMEOUT` seconds (default 180) or the deploy reports failure. Both values are positive integer seconds.
+`scripts/start-remote` and `scripts/stop-remote` call `sudo -n systemctl start|stop` on `${SERVICE_NAME}.service`. Deploy stops the unit, fast-forwards git, then starts the unit again. Startup success is `Startup complete` in the unit journal (not `data/logs/serve.out`).
+
+Non-interactive SSH cannot enter a sudo password. On the Linux host, allow passwordless sudo **only** for this unit (as root / `tempadmin`):
+
+```bash
+sudo visudo -f /etc/sudoers.d/dvra-announcements
+```
+
+Example (confirm paths with `command -v systemctl journalctl`):
+
+```
+announce ALL=(root) NOPASSWD: \
+  /usr/bin/systemctl start dvra-announcements.service, \
+  /usr/bin/systemctl stop dvra-announcements.service, \
+  /usr/bin/systemctl restart dvra-announcements.service, \
+  /usr/bin/systemctl status dvra-announcements.service, \
+  /usr/bin/systemctl is-active dvra-announcements.service, \
+  /usr/bin/journalctl -u dvra-announcements.service *
+```
+
+(Match the exact argv the scripts use, including the `.service` suffix.)
+
+Check as `announce`:
+
+```bash
+sudo -n systemctl status dvra-announcements.service
+sudo -n journalctl -u dvra-announcements.service -n 5 --no-pager
+```
+
+Install or refresh the unit on the host with `scripts/install-systemd-service` (run there; see [`scripts/README.md`](../scripts/README.md)).
+
+### Deploy behavior
+
+The script refuses to run with uncommitted or unpushed local changes. On the Linux host it checks that uv is present, that the systemd unit exists, that the clone is clean, and that `origin/main` fast-forwards, all before stopping the app. If `origin/main` has new commits, its `pyproject.toml` version must be greater than the one the Linux host is running (bump with `uv version --bump patch`, commit, push); otherwise the deploy stops and leaves the app running. A redeploy with no new commits just restarts the unit. It waits for `Startup complete` in the journal and warns if the radio mode is `stub`. If the app does not stop within `DEPLOY_STOP_TIMEOUT` seconds (default 30), the deploy aborts without updating; it never SIGKILLs the app, because that can leave PTT keyed. Startup must log `Startup complete` within `DEPLOY_START_TIMEOUT` seconds (default 180) or the deploy reports failure. Both values are positive integer seconds.
 
 If deploy reports **Linux host working tree has local changes** and `git status` shows only `uv.lock`, an older `./serve.sh` may have rewritten the lock on Linux. On the Linux host, discard that change, then redeploy after `origin/main` includes `./serve.sh` with `uv sync --frozen`:
 
 ```bash
-ssh repeater-nuc 'cd /home/rfreedman/projects/dvra-repeater-announcements && git restore uv.lock'
+ssh dvra-announcements 'cd /home/announce/dvra-repeater-announcements && git restore uv.lock'
 ```
 
 After `./serve.sh` is frozen, restarts should not modify `uv.lock` again; confirm with `git status` on the Linux host if you want to be sure.
@@ -68,4 +111,3 @@ The first run downloads the default voice into `voices/` (gitignored).
 python -m app download
 python -m app download amy ryan
 ```
-

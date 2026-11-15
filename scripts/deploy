@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-# Deploy origin/main to the Linux host: stop the app, git pull, start serve.sh, wait for startup.
+# Deploy origin/main to the Linux host: stop the systemd unit, git pull, start the unit.
 # Usage: scripts/deploy [host]
-#   env: DEPLOY_HOST, DEPLOY_PATH, DEPLOY_BRANCH, DEPLOY_STOP_TIMEOUT, DEPLOY_START_TIMEOUT
+#   env: DEPLOY_HOST, DEPLOY_PATH, DEPLOY_BRANCH, SERVICE_NAME,
+#        DEPLOY_STOP_TIMEOUT, DEPLOY_START_TIMEOUT
+#
+# Requires passwordless sudo on the host for systemctl/journalctl on this unit (sudo -n).
 set -euo pipefail
 
-HOST="${1:-${DEPLOY_HOST:-repeater-nuc}}"
-REMOTE_PATH="${DEPLOY_PATH:-/home/rfreedman/projects/dvra-repeater-announcements}"
+HOST="${1:-${DEPLOY_HOST:-dvra-announcements}}"
+REMOTE_PATH="${DEPLOY_PATH:-/home/announce/dvra-repeater-announcements}"
 BRANCH="${DEPLOY_BRANCH:-main}"
+SERVICE_NAME="${SERVICE_NAME:-dvra-announcements}"
 stop_timeout="${DEPLOY_STOP_TIMEOUT:-30}"
 start_timeout="${DEPLOY_START_TIMEOUT:-180}"
 if [[ ! "$stop_timeout" =~ ^[1-9][0-9]*$ ]]; then
@@ -30,22 +34,27 @@ if [[ -n "$(git rev-list "origin/$BRANCH..$BRANCH")" ]]; then
   exit 1
 fi
 
-echo "Deploying origin/$BRANCH to $HOST:$REMOTE_PATH"
-ssh "$HOST" bash -s -- "$REMOTE_PATH" "$BRANCH" "$stop_timeout" "$start_timeout" <<'REMOTE'
+echo "Deploying origin/$BRANCH to $HOST:$REMOTE_PATH (${SERVICE_NAME}.service)"
+ssh "$HOST" bash -s -- \
+  "$REMOTE_PATH" "$BRANCH" "$SERVICE_NAME" "$stop_timeout" "$start_timeout" <<'REMOTE'
 set -euo pipefail
 cd "$1"
 branch="$2"
-stop_timeout="$3"
-start_timeout="$4"
+SERVICE_NAME="$3"
+stop_timeout="$4"
+start_timeout="$5"
 # Non-interactive ssh skips ~/.bashrc, where the uv installer adds itself; serve.sh needs uv to sync.
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
-pattern='python -m app serve'
-out=data/logs/serve.out
 
 if ! command -v uv >/dev/null 2>&1; then
   echo "uv not found on the Linux host (serve.sh needs it to sync dependencies); app left running." >&2
   exit 1
 fi
+if ! systemctl cat "${SERVICE_NAME}.service" &>/dev/null; then
+  echo "Unit ${SERVICE_NAME}.service is not installed; app left running." >&2
+  exit 1
+fi
+
 git fetch --quiet origin "$branch"
 if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   echo "Linux host working tree has local changes; app left running." >&2
@@ -77,18 +86,19 @@ if [[ "$(git rev-parse HEAD)" != "$(git rev-parse "origin/$branch")" ]]; then
   echo "Deploying version $deployed -> $candidate"
 fi
 
-pids="$(pgrep -u "$USER" -f "$pattern" || true)"
-if [[ -n "$pids" ]]; then
-  echo "Stopping app (pid $pids)"
-  kill -TERM $pids
+if systemctl is-active --quiet "${SERVICE_NAME}.service"; then
+  echo "Stopping ${SERVICE_NAME}.service"
+  if ! sudo -n systemctl stop "${SERVICE_NAME}.service"; then
+    echo "sudo -n systemctl stop failed; app left running. See docs/deploy.md (NOPASSWD)." >&2
+    exit 1
+  fi
   for ((i = 0; i < stop_timeout; i++)); do
-    pgrep -u "$USER" -f "$pattern" >/dev/null || break
+    systemctl is-active --quiet "${SERVICE_NAME}.service" || break
     sleep 1
   done
-  if pgrep -u "$USER" -f "$pattern" >/dev/null; then
-    # No SIGKILL: a hard kill mid-transmission can leave PTT keyed.
-    echo "App still running after ${stop_timeout}s (pid $(pgrep -u "$USER" -f "$pattern" | tr '\n' ' '))." >&2
-    echo "Not updating. Check it and stop it yourself, then re-run the deploy." >&2
+  if systemctl is-active --quiet "${SERVICE_NAME}.service"; then
+    echo "App still active after ${stop_timeout}s." >&2
+    echo "Not updating. Not sending SIGKILL (can leave PTT keyed)." >&2
     exit 1
   fi
 else
@@ -99,35 +109,33 @@ old="$(git rev-parse --short HEAD)"
 git merge --quiet --ff-only "origin/$branch"
 new="$(git rev-parse --short HEAD)"
 echo "Updated $old -> $new (version $(version_at HEAD))"
-mkdir -p "$(dirname "$out")"
-setsid nohup ./serve.sh >"$out" 2>&1 </dev/null &
-pid=$!
-echo "Starting app (output: $1/$out)"
-serve_lines=0
+
+since="$(date --iso-8601=seconds)"
+echo "Starting ${SERVICE_NAME}.service"
+if ! sudo -n systemctl start "${SERVICE_NAME}.service"; then
+  echo "sudo -n systemctl start failed after git update. Start it manually on the host." >&2
+  exit 1
+fi
 
 for ((i = 0; i < start_timeout; i++)); do
-  if [[ -f "$out" ]]; then
-    total="$(wc -l <"$out" | tr -d ' ')"
-    if (( total > serve_lines )); then
-      tail -n +"$((serve_lines + 1))" "$out"
-      serve_lines=$total
-    fi
-  fi
-  if grep -q 'Startup complete' "$out" 2>/dev/null; then
-    line="$(grep -m 1 'Startup complete' "$out")"
+  if line="$(sudo -n journalctl -u "${SERVICE_NAME}.service" --since "$since" -o cat --no-pager \
+    | grep -m 1 'Startup complete' || true)" \
+    && [[ -n "$line" ]]; then
+    echo "$line"
     if [[ "$line" == *"radio mode: stub"* ]]; then
       echo "WARNING: radio mode is stub; set TTS_RADIO_BACKEND=dra in .env for on-air playback." >&2
     fi
     exit 0
   fi
-  if ! kill -0 "$pid" 2>/dev/null; then
-    echo "App exited during startup. Last output:" >&2
-    tail -n 40 "$out" >&2
+  if ! systemctl is-active --quiet "${SERVICE_NAME}.service"; then
+    echo "Service is not active after start. Recent logs:" >&2
+    sudo -n journalctl -u "${SERVICE_NAME}.service" -n 40 --no-pager >&2 || true
     exit 1
   fi
   sleep 1
 done
-echo "No 'Startup complete' after ${start_timeout}s. Last output:" >&2
-tail -n 40 "$out" >&2
+
+echo "No 'Startup complete' after ${start_timeout}s. Recent logs:" >&2
+sudo -n journalctl -u "${SERVICE_NAME}.service" -n 40 --no-pager >&2 || true
 exit 1
 REMOTE

@@ -2,16 +2,16 @@
 
 ## `start-remote`
 
-Run from the **dev machine**: SSH to the Linux host and start `./serve.sh` with `setsid`/`nohup` (survives logoff on that host). Does not stop a running app or pull git. Log on the Linux host: `data/logs/serve.out`. Same host/path env as deploy (`DEPLOY_HOST`, `DEPLOY_PATH`). The default host `repeater-nuc` is this station’s SSH hostname.
+Run from the **dev machine**: SSH to the Linux host and `systemctl start` the app unit. Does not pull git. Waits for `Startup complete` in the unit journal. Defaults: host `dvra-announcements`, unit `dvra-announcements`. Needs passwordless sudo for that unit (see [Deploying](../docs/deploy.md)).
 
 ```bash
-scripts/start-remote                 # default host repeater-nuc
-scripts/start-remote other-host      # or DEPLOY_HOST=other-host
+scripts/start-remote                 # default host dvra-announcements
+scripts/start-remote other-host      # or DEPLOY_HOST=… SERVICE_NAME=…
 ```
 
 ## `stop-remote`
 
-Run from the **dev machine**: SSH to the Linux host and stop `python -m app serve` with SIGTERM (never SIGKILL). Waits up to `DEPLOY_STOP_TIMEOUT` seconds (default 30), same as deploy. Exits 0 if the app was not running.
+Run from the **dev machine**: SSH and `systemctl stop` the app unit (SIGTERM via systemd; never SIGKILL). Waits up to `DEPLOY_STOP_TIMEOUT` seconds (default 30). Exits 0 if the unit was already inactive.
 
 ```bash
 scripts/stop-remote
@@ -20,11 +20,20 @@ scripts/stop-remote other-host
 
 ## `deploy`
 
-Run from the dev machine: stops the app on the Linux host, runs `git pull` there, and restarts `./serve.sh` in the background. The host defaults to `repeater-nuc` (this station’s SSH hostname); override it with `DEPLOY_HOST` or the first argument. `DEPLOY_STOP_TIMEOUT` (default 30) and `DEPLOY_START_TIMEOUT` (default 180) are the stop and startup waits, in seconds. Needs uv on the Linux host. Details: [Deploying](../docs/deploy.md).
+Run from the dev machine: stops the systemd unit, fast-forwards git on the host, starts the unit again (`./serve.sh` as `ExecStart`). Defaults: host `dvra-announcements`, path `/home/announce/dvra-repeater-announcements`, unit `dvra-announcements`. `DEPLOY_STOP_TIMEOUT` (default 30) and `DEPLOY_START_TIMEOUT` (default 180) are the stop and startup waits. Needs uv and NOPASSWD systemctl on the host. Details: [Deploying](../docs/deploy.md).
 
 ```bash
 scripts/deploy
 scripts/deploy other-host
+```
+
+## `tail-nuc`
+
+Tail `data/logs/announcements.log` on the Linux host (name is historical).
+
+```bash
+scripts/tail-nuc
+scripts/tail-nuc dvra-announcements
 ```
 
 ## `dra36m_check.py`

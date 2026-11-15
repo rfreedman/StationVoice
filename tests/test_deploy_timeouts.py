@@ -1,4 +1,4 @@
-"""DEPLOY_STOP_TIMEOUT and DEPLOY_START_TIMEOUT are checked before any NUC work."""
+"""DEPLOY_STOP_TIMEOUT and DEPLOY_START_TIMEOUT are checked before any remote work."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DEPLOY = ROOT / "scripts" / "deploy"
 STOP_REMOTE = ROOT / "scripts" / "stop-remote"
+START_REMOTE = ROOT / "scripts" / "start-remote"
 
 
 def _run_deploy(**env: str) -> subprocess.CompletedProcess[str]:
@@ -42,10 +43,13 @@ def test_deploy_rejects_non_positive_timeouts_before_git() -> None:
 def test_deploy_passes_timeouts_into_the_remote_script() -> None:
     text = DEPLOY.read_text(encoding="utf-8")
     assert '"$stop_timeout" "$start_timeout"' in text
-    assert 'stop_timeout="$3"' in text
-    assert 'start_timeout="$4"' in text
+    assert 'stop_timeout="$4"' in text
+    assert 'start_timeout="$5"' in text
     assert 'stop_timeout="${DEPLOY_STOP_TIMEOUT:-30}"' in text
     assert 'start_timeout="${DEPLOY_START_TIMEOUT:-180}"' in text
+    assert 'SERVICE_NAME="${SERVICE_NAME:-dvra-announcements}"' in text
+    assert 'DEPLOY_HOST:-dvra-announcements' in text
+    assert "sudo -n systemctl" in text
 
 
 def test_serve_sh_uses_frozen_sync_so_nuc_does_not_dirty_uv_lock() -> None:
@@ -71,11 +75,20 @@ def test_stop_remote_rejects_invalid_deploy_stop_timeout() -> None:
     result = _run_stop_remote(DEPLOY_STOP_TIMEOUT="0")
     assert result.returncode == 1
     assert "Invalid DEPLOY_STOP_TIMEOUT=0" in result.stderr
-    assert "Stopping app on" not in result.stdout
+    assert "Stopping" not in result.stdout
 
 
 def test_stop_remote_passes_stop_timeout_to_remote_script() -> None:
     text = STOP_REMOTE.read_text(encoding="utf-8")
-    assert '"$REMOTE_PATH" "$stop_timeout"' in text
+    assert '"$SERVICE_NAME" "$stop_timeout"' in text
     assert 'stop_timeout="$2"' in text
     assert 'stop_timeout="${DEPLOY_STOP_TIMEOUT:-30}"' in text
+    assert "sudo -n systemctl stop" in text
+
+
+def test_start_remote_uses_systemd_and_start_timeout() -> None:
+    text = START_REMOTE.read_text(encoding="utf-8")
+    assert 'start_timeout="${DEPLOY_START_TIMEOUT:-180}"' in text
+    assert "sudo -n systemctl start" in text
+    assert "journalctl" in text
+    assert 'DEPLOY_HOST:-dvra-announcements' in text
