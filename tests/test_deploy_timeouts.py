@@ -6,19 +6,30 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
-DEPLOY = ROOT / "scripts" / "deploy"
-STOP_REMOTE = ROOT / "scripts" / "stop-remote"
-START_REMOTE = ROOT / "scripts" / "start-remote"
+# Station helpers live in gitignored scripts-local/ (absent on CI).
+LOCAL = ROOT / "scripts-local"
+DEPLOY = LOCAL / "deploy"
+STOP_REMOTE = LOCAL / "stop-remote"
+START_REMOTE = LOCAL / "start-remote"
+
+
+def _require_local_script(path: Path) -> Path:
+    if not path.is_file():
+        pytest.skip(f"{path.relative_to(ROOT)} not present (scripts-local is gitignored)")
+    return path
 
 
 def _run_deploy(**env: str) -> subprocess.CompletedProcess[str]:
+    deploy = _require_local_script(DEPLOY)
     run_env = os.environ.copy()
     _ = run_env.pop("DEPLOY_STOP_TIMEOUT", None)
     _ = run_env.pop("DEPLOY_START_TIMEOUT", None)
     run_env.update(env)
     return subprocess.run(
-        ["bash", str(DEPLOY)],
+        ["bash", str(deploy)],
         cwd=ROOT,
         env=run_env,
         capture_output=True,
@@ -41,15 +52,17 @@ def test_deploy_rejects_non_positive_timeouts_before_git() -> None:
 
 
 def test_deploy_passes_timeouts_into_the_remote_script() -> None:
-    text = DEPLOY.read_text(encoding="utf-8")
+    text = _require_local_script(DEPLOY).read_text(encoding="utf-8")
     assert '"$stop_timeout" "$start_timeout"' in text
     assert 'stop_timeout="$4"' in text
     assert 'start_timeout="$5"' in text
     assert 'stop_timeout="${DEPLOY_STOP_TIMEOUT:-30}"' in text
     assert 'start_timeout="${DEPLOY_START_TIMEOUT:-180}"' in text
     assert 'SERVICE_NAME="${SERVICE_NAME:-dvra-announcements}"' in text
-    assert 'DEPLOY_HOST:-dvra-announcements' in text
-    assert "sudo -n systemctl" in text
+    assert "DEPLOY_HOST:-dvra-announcements" in text
+    assert 'UNIT="$SERVICE_NAME"' in text
+    assert 'sudo -n "$SYSTEMCTL" stop' in text
+    assert 'sudo -n "$SYSTEMCTL" start' in text
 
 
 def test_serve_sh_uses_frozen_sync_so_nuc_does_not_dirty_uv_lock() -> None:
@@ -58,11 +71,12 @@ def test_serve_sh_uses_frozen_sync_so_nuc_does_not_dirty_uv_lock() -> None:
 
 
 def _run_stop_remote(**env: str) -> subprocess.CompletedProcess[str]:
+    stop_remote = _require_local_script(STOP_REMOTE)
     run_env = os.environ.copy()
     _ = run_env.pop("DEPLOY_STOP_TIMEOUT", None)
     run_env.update(env)
     return subprocess.run(
-        ["bash", str(STOP_REMOTE)],
+        ["bash", str(stop_remote)],
         cwd=ROOT,
         env=run_env,
         capture_output=True,
@@ -79,16 +93,18 @@ def test_stop_remote_rejects_invalid_deploy_stop_timeout() -> None:
 
 
 def test_stop_remote_passes_stop_timeout_to_remote_script() -> None:
-    text = STOP_REMOTE.read_text(encoding="utf-8")
+    text = _require_local_script(STOP_REMOTE).read_text(encoding="utf-8")
     assert '"$SERVICE_NAME" "$stop_timeout"' in text
     assert 'stop_timeout="$2"' in text
     assert 'stop_timeout="${DEPLOY_STOP_TIMEOUT:-30}"' in text
-    assert "sudo -n systemctl stop" in text
+    assert 'sudo -n "$SYSTEMCTL" stop' in text
+    assert 'UNIT="$SERVICE_NAME"' in text
 
 
 def test_start_remote_uses_systemd_and_start_timeout() -> None:
-    text = START_REMOTE.read_text(encoding="utf-8")
+    text = _require_local_script(START_REMOTE).read_text(encoding="utf-8")
     assert 'start_timeout="${DEPLOY_START_TIMEOUT:-180}"' in text
-    assert "sudo -n systemctl start" in text
+    assert 'sudo -n "$SYSTEMCTL" start' in text
     assert "journalctl" in text
-    assert 'DEPLOY_HOST:-dvra-announcements' in text
+    assert "DEPLOY_HOST:-dvra-announcements" in text
+    assert 'UNIT="$SERVICE_NAME"' in text

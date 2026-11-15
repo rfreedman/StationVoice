@@ -6,7 +6,7 @@ The Linux host runs the app from a git clone via a **systemd** unit whose `ExecS
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Defaults used by `scripts/deploy`, `start-remote`, `stop-remote`, and `tail-nuc`:
+Station-specific deploy helpers live in gitignored **`scripts-local/`** (`deploy`, `start-remote`, `stop-remote`, `tail-remote`). Defaults:
 
 | Env | Default |
 | --- | --- |
@@ -19,13 +19,13 @@ SSH `User` comes from your `~/.ssh/config` (typically `announce`).
 From the dev machine, deploy whatever is pushed to `origin/main`:
 
 ```bash
-scripts/deploy                         # default host dvra-announcements
-scripts/deploy other-host              # or DEPLOY_HOST=other-host; DEPLOY_PATH / SERVICE_NAME override
+scripts-local/deploy                         # default host dvra-announcements
+scripts-local/deploy other-host              # or DEPLOY_HOST=other-host; DEPLOY_PATH / SERVICE_NAME override
 ```
 
 ### systemd start / stop
 
-`scripts/start-remote` and `scripts/stop-remote` call `sudo -n systemctl start|stop` on `${SERVICE_NAME}.service`. Deploy stops the unit, fast-forwards git, then starts the unit again. Startup success is `Startup complete` in the unit journal (not `data/logs/serve.out`).
+`scripts-local/start-remote` and `scripts-local/stop-remote` call `sudo -n systemctl start|stop` with the bare unit name (`dvra-announcements`, no `.service` suffix). Deploy stops the unit, fast-forwards git, then starts the unit again. Startup success is `Startup complete` in the unit journal (not `data/logs/serve.out`).
 
 Non-interactive SSH cannot enter a sudo password. On the Linux host, allow passwordless sudo **only** for this unit (as root / `tempadmin`):
 
@@ -33,26 +33,30 @@ Non-interactive SSH cannot enter a sudo password. On the Linux host, allow passw
 sudo visudo -f /etc/sudoers.d/dvra-announcements
 ```
 
-Example (confirm paths with `command -v systemctl journalctl`):
+Example (use the paths from `command -v systemctl journalctl` on that host — often `/usr/bin/...`):
 
 ```
 announce ALL=(root) NOPASSWD: \
-  /usr/bin/systemctl start dvra-announcements.service, \
-  /usr/bin/systemctl stop dvra-announcements.service, \
-  /usr/bin/systemctl restart dvra-announcements.service, \
-  /usr/bin/systemctl status dvra-announcements.service, \
-  /usr/bin/systemctl is-active dvra-announcements.service, \
-  /usr/bin/journalctl -u dvra-announcements.service *
+  /usr/bin/systemctl start dvra-announcements, \
+  /usr/bin/systemctl stop dvra-announcements, \
+  /usr/bin/systemctl restart dvra-announcements, \
+  /usr/bin/journalctl -u dvra-announcements *
 ```
 
-(Match the exact argv the scripts use, including the `.service` suffix.)
+Match the **exact** binary path and argv. Use the bare unit name **`dvra-announcements`** (no `.service` suffix) — sudo treats `dvra-announcements` and `dvra-announcements.service` as different. `status` is optional; it often works without root.
 
-Check as `announce`:
+**Important:** a recent interactive `sudo` can cache credentials, so `sudo -n …` may succeed in that SSH session even when NOPASSWD is wrong. Clear the cache, then test the commands the scripts actually run:
 
 ```bash
-sudo -n systemctl status dvra-announcements.service
-sudo -n journalctl -u dvra-announcements.service -n 5 --no-pager
+command -v systemctl journalctl
+sudo -k
+sudo -n "$(command -v systemctl)" stop dvra-announcements
+sudo -n "$(command -v systemctl)" start dvra-announcements
+sudo -n "$(command -v journalctl)" -u dvra-announcements -n 5 --no-pager
+sudo -l
 ```
+
+If `stop` still asks for a password after `sudo -k`, the sudoers line for `stop` is missing or the path/argv does not match. Fix the drop-in with `visudo`, then re-test with `sudo -k` again.
 
 Install or refresh the unit on the host with `scripts/install-systemd-service` (run there; see [`scripts/README.md`](../scripts/README.md)).
 
