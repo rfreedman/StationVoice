@@ -1,11 +1,37 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
+import sys
+from collections.abc import Iterator
+from pathlib import Path
+from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
 from app import notify_email
+from tests.notify_plugin_util import install_bird_plugin, install_stub_bird_sdk
+
+
+@pytest.fixture(autouse=True)
+def _bird_plugins_dir(
+    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
+) -> Iterator[Path]:
+    _ = install_stub_bird_sdk()
+    plugins = tmp_path_factory.mktemp("bird-plugins")
+    _ = install_bird_plugin(plugins)
+    monkeypatch.setenv("TTS_PLUGINS_DIR", str(plugins))
+    notify_email.reset_notifier_for_tests()
+    yield plugins
+    notify_email.reset_notifier_for_tests()
+
+
+def _bird_plugin_module() -> ModuleType:
+    notify_email.reset_notifier_for_tests()
+    notifier = notify_email.get_notifier()
+    assert type(notifier).__name__ == "BirdEmailNotifier"
+    module = sys.modules.get("dvra_plugins.bird_email")
+    assert module is not None
+    return module
 
 
 def _patch_bird(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
@@ -17,7 +43,8 @@ def _patch_bird(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     setattr(client, "__enter__", enter)
     setattr(client, "__exit__", exit_)
     bird_cls = MagicMock(return_value=client)
-    monkeypatch.setattr(notify_email, "Bird", bird_cls)
+    module = _bird_plugin_module()
+    monkeypatch.setattr(module, "Bird", bird_cls)
     return send
 
 

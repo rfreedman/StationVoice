@@ -3151,7 +3151,12 @@ async function refreshAdminConfig() {
   const values = current.values || {};
   fillConfigForm(values);
   await fillVoiceOptions(values.default_voice || "");
-  document.getElementById("cfg-admin-emails").value = payload.admin_emails || "";
+  const emailPlugin = Boolean(payload.admin_email_plugin);
+  const alertsPanel = document.getElementById("admin-alerts-panel");
+  alertsPanel.classList.toggle("hidden", !emailPlugin);
+  document.getElementById("cfg-admin-emails").value = emailPlugin
+    ? payload.admin_emails || ""
+    : "";
   document.getElementById("cfg-short").value = "";
   document.getElementById("cfg-long").value = "";
   const when = formatSavedAt(current.saved_at, values.timezone);
@@ -3222,7 +3227,9 @@ async function saveAdminConfig() {
       values: readConfigForm(),
       short_description: document.getElementById("cfg-short").value,
       long_description: document.getElementById("cfg-long").value,
-      admin_emails: document.getElementById("cfg-admin-emails").value.trim(),
+      admin_emails: document.getElementById("admin-alerts-panel").classList.contains("hidden")
+        ? ""
+        : document.getElementById("cfg-admin-emails").value.trim(),
     }),
   });
   let payload = {};

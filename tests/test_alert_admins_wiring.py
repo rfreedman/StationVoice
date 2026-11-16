@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import sys
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 from typing import cast
@@ -62,23 +61,43 @@ def test_fail_startup_alerts_before_exit(monkeypatch: pytest.MonkeyPatch) -> Non
     def _exit(code: int) -> None:
         exit_calls.append(code)
 
-    def _write(_s: str) -> int:
-        return 1
-
-    def _flush() -> None:
-        return None
-
-    monkeypatch.setattr("app.notify_email.alert_admins", alert)
+    monkeypatch.setattr("app.notify.loader.notify_startup_failure_if_ready", alert)
     monkeypatch.setattr(os, "_exit", _exit)
-    monkeypatch.setattr(sys.stderr, "write", _write)
-    monkeypatch.setattr(sys.stderr, "flush", _flush)
 
     startup.fail_startup("radio missing")
 
-    alert.assert_called_once()
-    assert alert.call_args.args[0] == "Startup failed"
-    assert alert.call_args.kwargs["key"] == "startup"
+    alert.assert_called_once_with("Startup failed", "radio missing")
     assert exit_calls == [1]
+
+
+def test_fail_startup_skips_alert_when_notifier_never_loaded(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Plugin requirement failures must not re-enter get_notifier or dump a traceback."""
+    from app import notify_email, startup
+
+    exit_calls: list[int] = []
+
+    def _exit(code: int) -> None:
+        exit_calls.append(code)
+
+    notify_email.reset_notifier_for_tests()
+    get = MagicMock(side_effect=AssertionError("get_notifier must not be called"))
+    monkeypatch.setattr("app.notify_email.get_notifier", get)
+    monkeypatch.setattr(os, "_exit", _exit)
+
+    msg = (
+        "Admin notify plugin bird_email.py (BirdEmailNotifier) cannot start: "
+        + "messagebird-sdk is not installed; run: uv pip install 'messagebird-sdk>=0.137.0'"
+    )
+    with caplog.at_level("ERROR"):
+        startup.fail_startup(msg)
+
+    get.assert_not_called()
+    assert exit_calls == [1]
+    assert "Could not alert admins" not in caplog.text
+    assert caplog.text.count("cannot start") == 1
+    assert "messagebird-sdk" in caplog.text
 
 
 def test_lifespan_emails_start_and_stop(

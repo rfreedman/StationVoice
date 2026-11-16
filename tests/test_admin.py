@@ -99,7 +99,17 @@ def test_save_updates_page_history_and_dotenv(client: TestClient) -> None:
     assert page_headers["cache-control"] == "no-store"
 
 
-def test_admin_emails_save_to_secrets_only_and_survive_revert(client: TestClient) -> None:
+def test_admin_emails_save_to_secrets_only_and_survive_revert(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from app import notify_email
+    from tests.notify_plugin_util import install_bird_plugin, install_stub_bird_sdk
+
+    _ = install_stub_bird_sdk()
+    _ = install_bird_plugin(tmp_path)
+    monkeypatch.setenv("TTS_PLUGINS_DIR", str(tmp_path))
+    notify_email.reset_notifier_for_tests()
+
     env_path = Path(os.environ["TTS_DOTENV_PATH"])
     secrets_path = Path(os.environ["TTS_SECRETS_DOTENV_PATH"])
     _ = env_path.write_text("STATION_NAME=Club\n", encoding="utf-8")
@@ -110,6 +120,7 @@ def test_admin_emails_save_to_secrets_only_and_survive_revert(client: TestClient
     os.environ["ADMIN_EMAILS"] = "old@example.com"
 
     state = _state(client)
+    assert state.admin_email_plugin is True
     assert state.admin_emails == "old@example.com"
     values = _values(state)
     values["station_name"] = "Alert Club"
@@ -143,7 +154,17 @@ def test_admin_emails_save_to_secrets_only_and_survive_revert(client: TestClient
     assert 'ADMIN_EMAILS="ops@example.com"' in secrets_path.read_text(encoding="utf-8")
 
 
-def test_admin_emails_reject_invalid_address(client: TestClient) -> None:
+def test_admin_emails_reject_invalid_address(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from app import notify_email
+    from tests.notify_plugin_util import install_bird_plugin, install_stub_bird_sdk
+
+    _ = install_stub_bird_sdk()
+    _ = install_bird_plugin(tmp_path)
+    monkeypatch.setenv("TTS_PLUGINS_DIR", str(tmp_path))
+    notify_email.reset_notifier_for_tests()
+
     values = _values(_state(client))
     res = client.post(
         "/api/admin/config",
@@ -155,6 +176,50 @@ def test_admin_emails_reject_invalid_address(client: TestClient) -> None:
     )
     assert res.status_code == 400
     assert "Invalid admin email" in res.text
+    notify_email.reset_notifier_for_tests()
+
+
+def test_admin_email_plugin_absent_by_default(client: TestClient) -> None:
+    from app import notify_email
+
+    notify_email.reset_notifier_for_tests()
+    state = _state(client)
+    assert state.admin_email_plugin is False
+    assert state.admin_emails == ""
+
+
+def test_admin_email_plugin_absent_hides_recipients_and_ignores_save(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from app import notify_email
+
+    secrets_path = Path(os.environ["TTS_SECRETS_DOTENV_PATH"])
+    _ = secrets_path.write_text(
+        'ADMIN_EMAILS="keep@example.com"\n',
+        encoding="utf-8",
+    )
+    os.environ["ADMIN_EMAILS"] = "keep@example.com"
+    monkeypatch.setenv("TTS_PLUGINS_DIR", str(tmp_path))
+    notify_email.reset_notifier_for_tests()
+
+    state = _state(client)
+    assert state.admin_email_plugin is False
+    assert state.admin_emails == ""
+
+    values = _values(state)
+    values["station_name"] = "No Email Club"
+    saved = _save(
+        client,
+        values,
+        "Without plugin",
+        admin_emails="attacker@example.com",
+    )
+    assert saved.admin_email_plugin is False
+    assert saved.admin_emails == ""
+    assert os.environ["ADMIN_EMAILS"] == "keep@example.com"
+    assert 'ADMIN_EMAILS="keep@example.com"' in secrets_path.read_text(encoding="utf-8")
+
+    notify_email.reset_notifier_for_tests()
 
 
 def test_newsline_interval_save_rearms_and_rejects_a_too_small_value(

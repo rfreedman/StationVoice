@@ -68,6 +68,10 @@ def _sync_startup_for_tests() -> bool:
 
 async def _complete_startup(started: float, stats_stop: asyncio.Event) -> asyncio.Task[None] | None:
     try:
+        from app.notify_email import get_notifier
+
+        # Eager plugin load: missing requirements fail startup with a clear message.
+        _ = get_notifier()
         _ = get_store().document()
         from app.phoneme_dict import get_phoneme_dictionary
 

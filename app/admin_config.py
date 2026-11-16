@@ -162,6 +162,8 @@ class ConfigState(BaseModel):
     changed: bool = True
     # Lives in .env.secrets only; not part of configuration history / revert.
     admin_emails: str = ""
+    # True when a drop-in AdminNotifier plugin is loaded under plugins/.
+    admin_email_plugin: bool = False
 
 
 def config_generation() -> int:
@@ -289,12 +291,15 @@ def save_config(
     *,
     admin_emails: str | None = None,
 ) -> ConfigHistoryFile:
+    from app.notify_email import admin_email_plugin_active
+
     short = clean_short(short_description)
     long = clean_long(long_description)
     checked = RuntimeConfigValues.model_validate(values.model_dump())
     with _lock:
         _apply(checked)
-        if admin_emails is not None:
+        # Ignore recipient edits when no email plugin is loaded (UI is hidden).
+        if admin_emails is not None and admin_email_plugin_active():
             _ = apply_admin_emails(admin_emails)
         document = _read_history()
         entries = list(document.entries) if document is not None else []
@@ -325,7 +330,10 @@ def revert_config(entry_id: str) -> tuple[ConfigHistoryFile, bool]:
 
 
 def config_state(document: ConfigHistoryFile, *, changed: bool) -> ConfigState:
+    from app.notify_email import admin_email_plugin_active
+
     current = _current_entry(document)
+    plugin_active = admin_email_plugin_active()
     return ConfigState(
         current=ConfigCurrent(
             id=current.id,
@@ -347,7 +355,8 @@ def config_state(document: ConfigHistoryFile, *, changed: bool) -> ConfigState:
         ],
         generation=config_generation(),
         changed=changed,
-        admin_emails=read_admin_emails(),
+        admin_emails=read_admin_emails() if plugin_active else "",
+        admin_email_plugin=plugin_active,
     )
 
 

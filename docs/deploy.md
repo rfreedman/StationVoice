@@ -98,6 +98,8 @@ The exported file pins every package (with hashes) and keeps platform markers, s
 
 `./serve.sh` runs `uv sync --frozen --inexact --no-dev` before starting (when uv is installed), so the venv matches the committed `uv.lock` and the lock file itself is left unchanged.
 
+Admin email is optional: copy a notifier from `plugin-examples/` into `plugins/` and install that plugin’s packages into the venv (see the plugin module docstring). For the Bird example: `cp plugin-examples/bird_email.py plugins/` then `uv pip install 'messagebird-sdk>=0.137.0'`.
+
 ### Versioning
 
 The version is written once, in `pyproject.toml`. The app reads it from the installed package (`importlib.metadata`), and it appears in the UI header and the API (`/docs`, `/openapi.json`). Do not add a version literal anywhere else.

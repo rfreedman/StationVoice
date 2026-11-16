@@ -106,16 +106,28 @@ Example with custom URLs (commented — do not paste live secrets into the defau
 
 Optional `.env` in the project root (see [`.env.example`](../.env.example)). Variables already set in the shell override that file.
 
-### Admin email (Bird)
+### Admin email (optional plugin)
 
-Operational failures (startup, fire/USB, scheduler, Newsline check, unexpected HTTP 500s) call `alert_admins`, which emails `ADMIN_EMAILS` via Bird. Successful application start and stop also email admins (`notify_admins_lifecycle`). Soft-fail: missing config only logs; the app keeps running. Put these in `.env.secrets` (see [`.env.secrets.example`](../.env.secrets.example)), not in the main `.env`. The app loads `.env.secrets` at startup (shell env still wins). Admin → Environment can edit `ADMIN_EMAILS` only; other secrets stay file-only.
+Admin email delivery is optional. Core always logs operational failures via `alert_admins`; email is only sent when a notifier plugin is present under `plugins/` (that directory is empty by default and is the only switch — not the Bird env vars).
+
+An example Bird (MessageBird) plugin ships in [`plugin-examples/bird_email.py`](../plugin-examples/bird_email.py). Enable it by copying that file into `plugins/` (any filename works). `plugin-examples/` is never loaded. Other notifier plugins should follow the same pattern: document their Python packages in the module docstring; install those packages into the venv separately (they are not project dependencies).
+
+For the Bird example:
+
+```bash
+cp plugin-examples/bird_email.py plugins/
+uv pip install 'messagebird-sdk>=0.137.0'
+```
+
+If the plugin is in `plugins/` but its Python packages are missing, startup **fails** after a clear error from the plugin’s `validate_requirements_installed()` (install hint included). Missing Bird env/config still soft-fails on send only (log and skip). Put Bird settings in `.env.secrets` (see [`.env.secrets.example`](../.env.secrets.example)), not in the main `.env`. The app loads `.env.secrets` at startup (shell env still wins). Admin → Environment shows **Admin alerts** / `ADMIN_EMAILS` only when an email plugin is loaded; other secrets stay file-only.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `BIRD_API_KEY` | *(required to send)* | Bird API key |
+| `BIRD_API_KEY` | *(required to send)* | Bird API key (Bird example plugin) |
 | `EMAIL_FROM` | *(required to send)* | From address |
 | `EMAIL_FROM_NAME` | `Repeater Announcements` | From display name |
-| `ADMIN_EMAILS` | *(required to send)* | Comma-separated admin recipients (editable in Admin UI) |
+| `ADMIN_EMAILS` | *(required to send)* | Comma-separated admin recipients (editable in Admin UI when a plugin is present) |
+| `TTS_PLUGINS_DIR` | `<repo>/plugins` | Override plugins directory (tests) |
 
 Duplicate alerts with the same debounce key are suppressed for 15 minutes.
 

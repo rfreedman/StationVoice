@@ -1,13 +1,14 @@
 """Application startup checks (DRA hardware, etc.)."""
 from __future__ import annotations
 
+import logging
 import os
-import sys
 
 from app.startup_errors import StartupError
 
 __all__ = ["StartupError", "fail_startup", "init_radio_at_startup"]
 
+logger = logging.getLogger(__name__)
 
 
 def _message_for_os_error(exc: OSError) -> str:
@@ -61,10 +62,14 @@ def init_radio_at_startup() -> None:
 
 
 def fail_startup(message: str) -> None:
-    """Log, alert admins, and terminate without raising (avoids lifespan tracebacks)."""
-    from app.notify_email import alert_admins
+    """Log one clear message, optionally email if notify is already up, then exit."""
+    text = message.rstrip()
+    logger.error("%s", text)
+    try:
+        from app.notify.loader import notify_startup_failure_if_ready
 
-    alert_admins("Startup failed", message, key="startup", debounce_seconds=0)
-    _ = sys.stderr.write(message.rstrip() + "\n")
-    _ = sys.stderr.flush()
+        notify_startup_failure_if_ready("Startup failed", text)
+    except Exception:
+        # Never cascade; the original message already explains the failure.
+        pass
     os._exit(1)

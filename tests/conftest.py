@@ -115,6 +115,20 @@ def isolate_admin_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
 
 
 @pytest.fixture(autouse=True)
+def isolate_plugins_dir(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[None]:
+    """Do not load a developer-copied plugin from the real ``plugins/`` directory."""
+    from app import notify_email
+
+    plugins = tmp_path_factory.mktemp("test-plugins")
+    monkeypatch.setenv("TTS_PLUGINS_DIR", str(plugins))
+    notify_email.reset_notifier_for_tests()
+    yield
+    notify_email.reset_notifier_for_tests()
+
+
+@pytest.fixture(autouse=True)
 def headless_portaudio_on_ci(monkeypatch: pytest.MonkeyPatch) -> None:
     """Headless GitHub runners expose PortAudio without usable device indices."""
     if not os.environ.get("GITHUB_ACTIONS"):

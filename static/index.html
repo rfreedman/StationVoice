@@ -306,9 +306,9 @@
             </label>
             </section>
 
-          <section class="panel">
+          <section class="panel hidden" id="admin-alerts-panel">
             <h2 class="subhead">Admin alerts</h2>
-            <p class="lede tight">Comma-separated addresses for operational error emails. Stored only in .env.secrets; not reverted with previous configurations. Bird API credentials stay in that file and are not editable here.</p>
+            <p class="lede tight">Comma-separated addresses for operational error emails. Stored only in .env.secrets; not reverted with previous configurations. Bird API credentials stay in that file and are not editable here. Shown only when an email notify plugin is present under plugins/.</p>
             <section class="voice-row">
               <label class="label" for="cfg-admin-emails">Admin email recipients</label>
               <input id="cfg-admin-emails" type="text" maxlength="2000" autocomplete="off" placeholder="ops@example.com, other@example.com" />
