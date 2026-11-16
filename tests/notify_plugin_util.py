@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -21,8 +22,16 @@ def install_bird_plugin(plugins_dir: Path) -> Path:
     return dest
 
 
+def install_stub_bird_env() -> None:
+    """Env vars required by BirdEmailNotifier.validate_requirements_installed."""
+    os.environ["BIRD_API_KEY"] = "bk_test"
+    os.environ["EMAIL_FROM"] = "repeater@example.com"
+    os.environ["ADMIN_EMAILS"] = "ops@example.com"
+
+
 def install_stub_bird_sdk() -> ModuleType:
     """Put a minimal ``bird`` package in ``sys.modules`` so the example can load."""
+    install_stub_bird_env()
     send = MagicMock(return_value=SimpleNamespace(id="msg_1", status="accepted"))
     client = MagicMock()
     setattr(client, "email", SimpleNamespace(send=send))

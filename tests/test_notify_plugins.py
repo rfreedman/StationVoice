@@ -10,7 +10,11 @@ import pytest
 from app import notify_email
 from app.notify.base import NullAdminNotifier
 from app.startup_errors import StartupError
-from tests.notify_plugin_util import install_bird_plugin, install_stub_bird_sdk
+from tests.notify_plugin_util import (
+    install_bird_plugin,
+    install_stub_bird_env,
+    install_stub_bird_sdk,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -124,9 +128,25 @@ def test_bird_plugin_missing_sdk_fails_startup_load(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     _ = sys.modules.pop("bird", None)
+    install_stub_bird_env()
     _ = install_bird_plugin(tmp_path)
     monkeypatch.setenv("TTS_PLUGINS_DIR", str(tmp_path))
     notify_email.reset_notifier_for_tests()
 
     with pytest.raises(StartupError, match="messagebird-sdk"):
+        _ = notify_email.get_notifier()
+
+
+def test_bird_plugin_missing_env_fails_startup_load(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _ = install_stub_bird_sdk()
+    monkeypatch.delenv("ADMIN_EMAILS", raising=False)
+    monkeypatch.delenv("BIRD_API_KEY", raising=False)
+    monkeypatch.delenv("EMAIL_FROM", raising=False)
+    _ = install_bird_plugin(tmp_path)
+    monkeypatch.setenv("TTS_PLUGINS_DIR", str(tmp_path))
+    notify_email.reset_notifier_for_tests()
+
+    with pytest.raises(StartupError, match="Bird email not configured"):
         _ = notify_email.get_notifier()

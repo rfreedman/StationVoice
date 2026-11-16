@@ -119,7 +119,7 @@ cp plugin-examples/bird_email.py plugins/
 uv pip install 'messagebird-sdk>=0.137.0'
 ```
 
-If the plugin is in `plugins/` but its Python packages are missing, startup **fails** after a clear error from the plugin’s `validate_requirements_installed()` (install hint included). Missing Bird env/config still soft-fails on send only (log and skip). Put Bird settings in `.env.secrets` (see [`.env.secrets.example`](../.env.secrets.example)), not in the main `.env`. The app loads `.env.secrets` at startup (shell env still wins). Admin → Environment shows **Admin alerts** / `ADMIN_EMAILS` only when an email plugin is loaded; other secrets stay file-only.
+If the plugin is in `plugins/` but its Python packages or send credentials are missing, startup **fails** after a clear error from the plugin’s `validate_requirements_installed()` (install / `.env.secrets` hint included). Put Bird settings in `.env.secrets` (see [`.env.secrets.example`](../.env.secrets.example)), not in the main `.env`. The app loads `.env.secrets` at startup (shell env still wins). Admin → Environment shows **Admin alerts** / `ADMIN_EMAILS` only when an email plugin is loaded; other secrets stay file-only. The station-local R2 backup script soft-uses the same plugin when usable, otherwise logs only.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |

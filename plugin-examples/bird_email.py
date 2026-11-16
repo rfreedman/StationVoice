@@ -7,10 +7,10 @@ Requires messagebird-sdk (not a project dependency). Install into the venv::
 
     uv pip install 'messagebird-sdk>=0.137.0'
 
-If this file is in ``plugins/`` but the SDK is missing, startup fails after a clear
-error (see ``validate_requirements_installed``). Bird credentials and recipients
-live in ``.env.secrets`` (``BIRD_API_KEY``, ``EMAIL_FROM``, ``EMAIL_FROM_NAME``,
-``ADMIN_EMAILS``). Missing those values soft-fail: log and skip send.
+If this file is in ``plugins/`` but the SDK or send credentials are missing,
+``validate_requirements_installed`` raises (app startup fails; the backup script
+logs and continues without email). Credentials live in ``.env.secrets``:
+``BIRD_API_KEY``, ``EMAIL_FROM``, ``EMAIL_FROM_NAME``, ``ADMIN_EMAILS``.
 """
 
 from __future__ import annotations
@@ -63,6 +63,17 @@ class BirdEmailNotifier(AdminNotifier):
         if Bird is None:
             raise RuntimeError(
                 f"messagebird-sdk is not installed; run: {_SDK_INSTALL_HINT}"
+            )
+        missing: list[str] = []
+        if not os.environ.get("BIRD_API_KEY", "").strip():
+            missing.append("BIRD_API_KEY")
+        if not os.environ.get("EMAIL_FROM", "").strip():
+            missing.append("EMAIL_FROM")
+        if not _admin_recipients():
+            missing.append("ADMIN_EMAILS")
+        if missing:
+            raise RuntimeError(
+                "Bird email not configured; set in .env.secrets: " + ", ".join(missing)
             )
 
     def send_email(self, subject: str, body: str, recipients: Sequence[str]) -> None:

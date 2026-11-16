@@ -86,8 +86,8 @@ def test_notify_admins_skips_when_admin_emails_empty(
 ) -> None:
     monkeypatch.setenv("BIRD_API_KEY", "bk_test")
     monkeypatch.setenv("EMAIL_FROM", "repeater@example.com")
-    monkeypatch.setenv("ADMIN_EMAILS", " , ")
     send = _patch_bird(monkeypatch)
+    monkeypatch.setenv("ADMIN_EMAILS", " , ")
 
     notify_email.notify_admins("Nope", "Nope")
 
@@ -105,7 +105,9 @@ def test_send_email_skips_when_no_recipients(monkeypatch: pytest.MonkeyPatch) ->
 
 
 @pytest.fixture(autouse=True)
-def _clear_alert_debounce() -> None:
+def _clear_alert_debounce(_bird_plugins_dir: Path) -> None:
+    # Depends on _bird_plugins_dir so the Bird plugin is loadable first.
+    _ = _bird_plugins_dir
     notify_email.clear_alert_debounce_for_tests()
 
 
@@ -114,8 +116,8 @@ def test_notify_admins_lifecycle_skips_quietly_without_recipients(
 ) -> None:
     monkeypatch.setenv("BIRD_API_KEY", "bk_test")
     monkeypatch.setenv("EMAIL_FROM", "repeater@example.com")
-    monkeypatch.delenv("ADMIN_EMAILS", raising=False)
     send = _patch_bird(monkeypatch)
+    monkeypatch.delenv("ADMIN_EMAILS", raising=False)
 
     notify_email.notify_admins_lifecycle("Started", "ready")
 

@@ -2,7 +2,7 @@
 
 ## Station deploy helpers (`scripts-local/`)
 
-Gitignored copies for this station: `deploy`, `start-remote`, `stop-remote`, `status`, `tail-remote`. See [Deploying](../docs/deploy.md).
+Gitignored copies for this station: `deploy`, `start-remote`, `stop-remote`, `status`, `tail-remote`, and (optional) R2 helpers `backup-to-r2.py` / `list-r2-backups.py`. See [Deploying](../docs/deploy.md). Those R2 scripts are independent of the app (no `app.*` imports); install deps per each module docstring (`uv pip install boto3 botocore`).
 
 ```bash
 scripts-local/start-remote
