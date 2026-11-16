@@ -120,6 +120,19 @@ def _is_alsa_hw_portaudio_name(name: str) -> bool:
     return "(hw:" in name
 
 
+def portaudio_name_has_alsa_hw(name: str) -> bool:
+    """Public alias: PortAudio name includes an ALSA ``(hw:N,…)`` suffix."""
+    return _is_alsa_hw_portaudio_name(name)
+
+
+def portaudio_index_has_alsa_hw(device_index: int) -> bool:
+    """True when PortAudio device ``device_index`` is an ALSA ``(hw:…)`` output."""
+    try:
+        return portaudio_name_has_alsa_hw(portaudio_output_device_name(device_index))
+    except Exception:
+        return False
+
+
 def _is_pipewire_usb_sink_name(name: str) -> bool:
     """PipeWire/Pulse PortAudio sink for a USB sound card (not raw ``hw:``)."""
     lowered = name.lower()

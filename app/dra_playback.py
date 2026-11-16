@@ -63,17 +63,42 @@ def _write_mono_to_stream(
         stream.write(out)
 
 
+def _alsa_card_from_cm119_dra_ordinal(device_index: int) -> int | None:
+    """Map Pulse/PipeWire DRA sinks to ALSA cards via ``/proc/asound/cards`` order (#88)."""
+    from app.dra_alsa_unmute import cm119_alsa_card_signature
+    from app.dra_portaudio import list_dra_output_devices
+
+    cards = list(cm119_alsa_card_signature(limit=16))
+    if not cards:
+        return None
+    dra_indices = [index for index, _dev in list_dra_output_devices()]
+    if device_index not in dra_indices:
+        return cards[0] if len(cards) == 1 else None
+    pos = dra_indices.index(device_index)
+    if pos < len(cards):
+        return cards[pos]
+    return None
+
+
+def _alsa_card_for_aplay(device_index: int) -> int | None:
+    from app.dra_alsa_unmute import alsa_card_from_portaudio_device
+
+    card = alsa_card_from_portaudio_device(device_index)
+    if card is not None:
+        return card
+    return _alsa_card_from_cm119_dra_ordinal(device_index)
+
+
 def _alsa_playback_devices_for_portaudio_index(device_index: int) -> list[str]:
     from app.config import DRA_ALSA_PLAYBACK_DEVICE
-    from app.dra_alsa_unmute import alsa_card_from_portaudio_device
 
     if DRA_ALSA_PLAYBACK_DEVICE:
         return [DRA_ALSA_PLAYBACK_DEVICE]
-    card = alsa_card_from_portaudio_device(device_index)
+    card = _alsa_card_for_aplay(device_index)
     if card is None:
         raise RuntimeError(
             f"Could not map PortAudio index {device_index} to ALSA hw "
-            + "(expected device name with (hw:N,0))"
+            + "(expected device name with (hw:N,0) or CM119 in /proc/asound/cards)"
         )
     # Prefer direct hw for CM119 USB; plughw can route through PipeWire and stay silent.
     return [f"hw:{card},0", f"plughw:{card},0"]

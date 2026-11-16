@@ -1,0 +1,15 @@
+---
+description: Linux host systemctl/journalctl/caddy commands need sudo
+alwaysApply: true
+---
+
+# Linux host: use sudo for service commands
+
+On the announcements Linux host (`dvra-announcements`), the operator user cannot run bare `systemctl`, `journalctl`, or inspect most service config without root.
+
+When giving the user a command to run **on that host**:
+
+- Prefer **`sudo systemctl …`**, **`sudo journalctl …`**, **`sudo cat /etc/caddy/…`**, **`sudo systemctl cat …`**, etc.
+- Do **not** assume unprivileged `systemctl status` / `systemctl show` / `systemctl cat` will work for copy-paste troubleshooting.
+- Passwordless sudo may exist only for the **`dvra-announcements`** unit (see `docs/deploy.md`); other units (e.g. `caddy`) still need interactive `sudo`.
+- Keep multi-line paste blocks entirely `sudo`-prefixed so one copy-paste works.

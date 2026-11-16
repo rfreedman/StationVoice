@@ -14,7 +14,7 @@ Station-specific deploy helpers live in gitignored **`scripts-local/`** (`deploy
 | `DEPLOY_PATH` | `/home/announce/dvra-repeater-announcements` |
 | `SERVICE_NAME` | `dvra-announcements` |
 
-SSH `User` comes from your `~/.ssh/config` (typically `announce`).
+SSH `User` comes from your `~/.ssh/config` (typically `announce`). Operator HTTPS and Tailscale URLs are in [`remote-access.md`](remote-access.md).
 
 From the dev machine, deploy whatever is pushed to `origin/main`:
 

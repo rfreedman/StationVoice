@@ -342,6 +342,12 @@ class DraRadio:
 
         return all(portaudio_index_is_dra_output(index) for index in self._audio_indices)
 
+    def audio_indices_have_alsa_hw(self) -> bool:
+        """True when every paired PortAudio output has an ``(hw:N,…)`` name (aplay-ready)."""
+        from app.dra_portaudio import portaudio_index_has_alsa_hw
+
+        return all(portaudio_index_has_alsa_hw(index) for index in self._audio_indices)
+
     def sync_hid_adapters_if_replugged(self) -> bool:
         """Refresh CM119 HID paths after USB replug (ALSA card number may be unchanged)."""
         if not self.note_usb_hid_presence():
@@ -539,6 +545,7 @@ class DraRadio:
 
     def prepare_for_transmit(self) -> None:
         """Before PTT: PortAudio re-scan, HID/audio replug recovery, Speaker unmute."""
+        from app.config import dra_linux_playback_backend
         from app.dra_alsa_mixer import apply_cm119_replug_recovery, sync_cm119_speaker_unmute
 
         if not self.runtime_usb_hid_tracking_enabled():
@@ -549,9 +556,23 @@ class DraRadio:
         apply_cm119_replug_recovery(self)
         if not self.note_usb_hid_presence():
             return
-        pa_rescan = reconnected or not self.audio_output_indices_look_valid()
+        # aplay needs (hw:N,0). After reboot PortAudio may only expose Pulse sinks;
+        # those are still "valid" DRA names, so re-resolve when hw appears (#88).
+        need_aplay_hw = (
+            dra_linux_playback_backend() == "aplay" and not self.audio_indices_have_alsa_hw()
+        )
+        if need_aplay_hw:
+            log.info(
+                "DRA aplay paired to non-hw PortAudio device(s) %s; refreshing for ALSA hw",
+                self._audio_indices,
+            )
+        pa_rescan = (
+            reconnected or not self.audio_output_indices_look_valid() or need_aplay_hw
+        )
         _ = self.sync_audio_output_indices_if_changed(after_usb_event=pa_rescan)
         if not self.audio_output_indices_look_valid():
+            _ = self.sync_audio_output_indices_if_changed(after_usb_event=True)
+        elif need_aplay_hw and not self.audio_indices_have_alsa_hw():
             _ = self.sync_audio_output_indices_if_changed(after_usb_event=True)
         sync_cm119_speaker_unmute(self)
         from typing import cast

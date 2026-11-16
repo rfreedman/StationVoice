@@ -51,6 +51,7 @@ def test_alsa_cards_fallback_proc(monkeypatch: pytest.MonkeyPatch) -> None:
     assert alsa_cards_for_dra_outputs([10, 11]) == [1, 2]
 
 
+
 def test_unmute_speaker_calls_amixer(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[list[str]] = []
 
