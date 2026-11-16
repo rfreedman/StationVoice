@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 
 from app.startup_errors import StartupError
 
@@ -22,8 +23,6 @@ def _message_for_os_error(exc: OSError) -> str:
 
 def init_radio_at_startup() -> None:
     """Eager DRA/stub radio init so misconfiguration fails before serving traffic."""
-    import sys
-
     from app.config import DRA_ALSA_SPEAKER_LEVEL, dra_alsa_unmute_enabled, radio_backend
     from app.radio import as_cos_polling, create_radio_from_config, set_radio
 
