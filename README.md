@@ -6,7 +6,7 @@
   </a>
 </p>
 
-![Test](https://github.com/rfreedman/dvra-repeater-announcements/actions/workflows/test.yml/badge.svg)](https://github.com/rfreedman/dvra-repeater-announcements/actions/workflows/test.yml)
+![Test](https://github.com/rfreedman/dvra-repeater-announcements/actions/workflows/test.yml/badge.svg)
 
 <big>Software for Scheduled Amateur Radio Repeater Text-to-Speech Announcements,
 developed at the <a href="https://w2zq.com" style="white-space: nowrap;">Delware Valley Radio Association</a> </big>
