@@ -1,53 +1,72 @@
-# DVRA Repeater Announcements (DVRA_RA)
+# StationVoice
+
+<p align="center">
+  <a href="https://w2zq.com">
+    <img src="static/docs/dvra-logo.png" width="200">  
+  </a>
+</p>
+
 
 [![Test](https://github.com/rfreedman/dvra-repeater-announcements/actions/workflows/test.yml/badge.svg)](https://github.com/rfreedman/dvra-repeater-announcements/actions/workflows/test.yml)
 
-Software for scheduled Amateur Radio repeater announcements. 
+[Delaware Valley Radio Association](https://w2zq.com)
+
+<big>Software for Scheduled Amateur Radio Repeater Text-to-Speech Announcements,
+developed at the <a href="https://w2zq.com" style="white-space: nowrap;">Delware Valley Radio Association</a> </big>
+<br/><br/>
 
 ## About
 
-This project implements an announcement controller for Amateur Radio repeaters.
+<b>StationVoice</b> is a multi-port, text-to-speech "announcement machine" for Amateur Radio repeaters.
 
-There are several hardware-based repeater controllers that include announcement capabilities,
-but most either work with hard-coded phrases that you must string together, or have           very basic 
-and robotic-sounding text-to-speech (TTS).
+Repeater hardware-based announcements are typically cumbersome, requiring hard-coded words and phrases from a fixed dictionary to be strung together.
 
-Also, a built-in repeater controller typically (always?) controls a single repeater.
+There are several sofware-based announcement software systems that but most either 
+require the recording of audio files, or have very basic and robotic-sounding text-to-speech (TTS).
 
-At the Delaware Valley Radio Association (station callsign W2ZQ), we have two
+At the DVRA (station callsign W2ZQ), we have two
 repeaters - one for VHF, and one for UHF, and they are in different locations.
 
-Our existing system announces on both repeaters at the same time by transmitting
-on two radios - one on each frequency. The repeaters receive these transmissions
-and repeat them the same way that they do for any normal transmission.
+Our existing system announces on both repeaters at the same time from a single location by transmitting on two radios: one on each frequency. The repeaters receive these transmissions and repeat them the same way that they do for any normal transmission.
 
 We wanted to continue to make the same announcements on both repeaters, at the same time,
-but we wanted a system that provided better TTS voices and more flexible and accessible 
+but we wanted a system that provided better TTS voices, without needing to generate audio files, and more flexible and accessible 
 scheduling than our existing announcement system.
 
-This is the result, and what will be put online soon.
+This is the result, and what will be put on the air soon.
+
+- Rich, N2EHL 2026-11-18
 
 ## Features
- * **TTS** - better-sounding text-to-speech by using the Piper TTS library
+ * **MultiPort** - **StationVoice** runs on a Linux computer, and uses 
+ <a href="https://www.masterscommunications.com/products/radio-adapter/dra/dra36m.html">Masters Communications DRA-36M interfaces to control the radios</a>. The DRA-36M
+ connects via a standard USB-A port. You can add more radios by attaching more DRA-36Ms 
+ (though the software has only been tested with two, you should be able to use more).
+ 
+ * **TTS** - better-sounding text-to-speech by using the Piper TTS library<br/>
+   The text-to-speech conversion is done directly - no need to generate an audio file.
 
- * **Accessibility** - admin interface is web-based, so that it can be used
+ * **Accessibility** - the admin interface is web-based, so that it can be used
    anywhere and on any computer that can reach the server.<br/>
    (We can use the admin interface on our shack's LAN, or from home via a VPN - it is NOT
    exposed to the open internet).
 
  * **Flexible Scheduling** - instead of requiring announcements to be scheduled at
-   specific times, DVRA_RA divides each 24-hour period into 48 time slots, one for 
-   each hour and half-hour. Announcements can then be scheduled for multiple slots
-   with a single 'schedule'. <br/><br/>Repeating schedules are modeled after common calendar repeating event 
+   specific times, StationVoice divides each 24-hour period into 48 time slots, one for 
+   each hour and half-hour. An announcement can then be scheduled for multiple slots
+   with a single 'schedule'. 
+   <br/>Repeating schedules are modeled after common calendar repeating event 
    schedules, with options like certain times on certain days of the week, or on 
    a particular day of the week on a specific week of the year, for example, 7:00pm
-   on the third Wednesday of the month. <br/><br/> See scheduling for more info
+   on the third Wednesday of the month. <br/><br/> 
+   See [scheduling](static/docs/scheduling.md) for more info
 
  * **Amateur Radio Newsline**
-   Many repeater controllers have the ability to transmit the Amateur Radio Newsline via EchoLink,
-   or by manually copying the ARNewsline mp3 file. To enable transmitting the Newsline on non-EchoLink repeaters, and without manual intervention, DVRA_RA can be configured
-   to automatically download the Newsline mp3 each week.<br/><br/>
-   To accommodate repeater controllers that cannot be programmed to automatically disable the repeater
-   timeout while the newsline is being transmitted, DVRA_RA automatically breaks up the NewsLine into  
-   multiple pieces that fit within the repeater timeout window.
+   Many repeater controllers have the ability to transmit the Amateur Radio Newsline via EchoLink, or by the operator manually downloading and copying the ARNewsline mp3 file each week. To enable transmitting the Newsline on non-EchoLink repeaters, and without manual intervention, StationVoice can be configured to automatically download the Newsline mp3 file each week.  <br/><br/> To accommodate repeater controllers that cannot be programmed to automatically disable the repeater timeout while the Newsline is being transmitted, StationVoice automatically breaks up the NewsLine into multiple pieces (at story boundaries) that fit within the repeater timeout window, and un-keys the radios between the pieces. 
   
+ ## Documentation
+ - Installation - coming soon
+ - Configuration - coming soon
+ - Scheduling - coming soon
+ - Advanced Text-to-Speech - coming soon
+ - Amateur Radio Newsline - coming soon

@@ -369,7 +369,7 @@ def test_index_shows_branding_before_login(client: TestClient) -> None:
     page = client.get("/").text
     title = html.escape(APP_TITLE)
     station = html.escape(STATION_NAME)
-    assert f"v{__version__}" in page
+    assert f"StationVoice v{__version__}" in page
     assert f"<title>{title}</title>" in page
     heading = page.split('id="app-heading"', 1)[1].split("</h1>", 1)[0]
     assert heading.index(f'id="app-title-heading"') < heading.index('id="station-heading"')
