@@ -1,5 +1,5 @@
 [project]
-name = "dvra-repeater-announcements"
+name = "stationvoice"
 version = "0.28.3"
 description = "StationVoice - ham radio repeater announcements with Piper TTS speech,a FastAPI UI, scheduler, and DRA-36M radio control"
 readme = "README.md"

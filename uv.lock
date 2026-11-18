@@ -438,77 +438,6 @@ wheels = [
 ]
 
 [[package]]
-name = "dvra-repeater-announcements"
-version = "0.28.3"
-source = { editable = "." }
-dependencies = [
-    { name = "apscheduler" },
-    { name = "av" },
-    { name = "bcrypt" },
-    { name = "fastapi" },
-    { name = "faster-whisper" },
-    { name = "feedparser" },
-    { name = "hidapi" },
-    { name = "itsdangerous" },
-    { name = "numpy" },
-    { name = "pillow" },
-    { name = "piper-tts" },
-    { name = "psutil" },
-    { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'" },
-    { name = "python-multipart" },
-    { name = "rapidfuzz" },
-    { name = "requests" },
-    { name = "sounddevice" },
-    { name = "stable-ts" },
-    { name = "torch", version = "2.14.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
-    { name = "torch", version = "2.14.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
-    { name = "torchaudio", version = "2.11.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
-    { name = "torchaudio", version = "2.11.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
-    { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "basedpyright" },
-    { name = "httpx2" },
-    { name = "pytest" },
-    { name = "pytest-playwright" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "apscheduler", specifier = ">=3.10.4,<4" },
-    { name = "av", specifier = ">=19" },
-    { name = "bcrypt", specifier = ">=4.0.0" },
-    { name = "fastapi", specifier = ">=0.115.0" },
-    { name = "faster-whisper", specifier = ">=1.1.0" },
-    { name = "feedparser", specifier = ">=6.0.14" },
-    { name = "hidapi", specifier = ">=0.14.0" },
-    { name = "itsdangerous", specifier = ">=2.0.0" },
-    { name = "numpy", specifier = ">=1.26.0,<3" },
-    { name = "pillow", specifier = ">=13.0.0" },
-    { name = "piper-tts", specifier = ">=1.7.0" },
-    { name = "psutil", specifier = ">=5.9" },
-    { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'", specifier = ">=10.0" },
-    { name = "python-multipart", specifier = ">=0.0.33" },
-    { name = "rapidfuzz", specifier = ">=3.0.0" },
-    { name = "requests", specifier = ">=2.34.2" },
-    { name = "sounddevice", specifier = ">=0.5.1" },
-    { name = "stable-ts", specifier = ">=2.19.0" },
-    { name = "torch", index = "https://download.pytorch.org/whl/cpu" },
-    { name = "torchaudio", index = "https://download.pytorch.org/whl/cpu" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "basedpyright", specifier = ">=1.40.2" },
-    { name = "httpx2", specifier = ">=2.0" },
-    { name = "pytest", specifier = ">=8.0.0" },
-    { name = "pytest-playwright", specifier = ">=0.10.0" },
-]
-
-[[package]]
 name = "fastapi"
 version = "0.143.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2011,6 +1940,77 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/7b/2b/3850dc6bf7ef71b088962eba31dafc6cffd2f96e577ebb0bb316df96da3e/starlette-1.7.0.tar.gz", hash = "sha256:c79f74ea63cff761804fbbfb182f1e0b440c2d07b164d24700c5a1bab5d6ff5d", size = 2736246, upload-time = "2026-09-23T07:30:26.35Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4e/d6/1ec1b290f9e0fb067899b61e1d37a30c923068bad260b216dbe37a7d2967/starlette-1.7.0-py3-none-any.whl", hash = "sha256:67f8e99895493dd2911a03f11314af6ceebeae4e704bb9f43dfc6a9db151c93e", size = 78980, upload-time = "2026-09-23T07:30:24.567Z" },
+]
+
+[[package]]
+name = "stationvoice"
+version = "0.28.3"
+source = { editable = "." }
+dependencies = [
+    { name = "apscheduler" },
+    { name = "av" },
+    { name = "bcrypt" },
+    { name = "fastapi" },
+    { name = "faster-whisper" },
+    { name = "feedparser" },
+    { name = "hidapi" },
+    { name = "itsdangerous" },
+    { name = "numpy" },
+    { name = "pillow" },
+    { name = "piper-tts" },
+    { name = "psutil" },
+    { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'" },
+    { name = "python-multipart" },
+    { name = "rapidfuzz" },
+    { name = "requests" },
+    { name = "sounddevice" },
+    { name = "stable-ts" },
+    { name = "torch", version = "2.14.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torch", version = "2.14.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
+    { name = "torchaudio", version = "2.11.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torchaudio", version = "2.11.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "basedpyright" },
+    { name = "httpx2" },
+    { name = "pytest" },
+    { name = "pytest-playwright" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "apscheduler", specifier = ">=3.10.4,<4" },
+    { name = "av", specifier = ">=19" },
+    { name = "bcrypt", specifier = ">=4.0.0" },
+    { name = "fastapi", specifier = ">=0.115.0" },
+    { name = "faster-whisper", specifier = ">=1.1.0" },
+    { name = "feedparser", specifier = ">=6.0.14" },
+    { name = "hidapi", specifier = ">=0.14.0" },
+    { name = "itsdangerous", specifier = ">=2.0.0" },
+    { name = "numpy", specifier = ">=1.26.0,<3" },
+    { name = "pillow", specifier = ">=13.0.0" },
+    { name = "piper-tts", specifier = ">=1.7.0" },
+    { name = "psutil", specifier = ">=5.9" },
+    { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'", specifier = ">=10.0" },
+    { name = "python-multipart", specifier = ">=0.0.33" },
+    { name = "rapidfuzz", specifier = ">=3.0.0" },
+    { name = "requests", specifier = ">=2.34.2" },
+    { name = "sounddevice", specifier = ">=0.5.1" },
+    { name = "stable-ts", specifier = ">=2.19.0" },
+    { name = "torch", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "torchaudio", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "basedpyright", specifier = ">=1.40.2" },
+    { name = "httpx2", specifier = ">=2.0" },
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "pytest-playwright", specifier = ">=0.10.0" },
 ]
 
 [[package]]

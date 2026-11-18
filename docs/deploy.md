@@ -11,7 +11,7 @@ Station-specific deploy helpers live in gitignored **`scripts-local/`** (`deploy
 | Env | Default |
 | --- | --- |
 | `DEPLOY_HOST` | `dvra-announcements` |
-| `DEPLOY_PATH` | `/home/announce/dvra-repeater-announcements` |
+| `DEPLOY_PATH` | `/home/announce/StationVoice` |
 | `SERVICE_NAME` | `dvra-announcements` |
 
 SSH `User` comes from your `~/.ssh/config` (typically `announce`). Operator HTTPS and Tailscale URLs are in [`remote-access.md`](remote-access.md).
@@ -67,7 +67,7 @@ The script refuses to run with uncommitted or unpushed local changes. On the Lin
 If deploy reports **Linux host working tree has local changes** and `git status` shows only `uv.lock`, an older `./serve.sh` may have rewritten the lock on Linux. On the Linux host, discard that change, then redeploy after `origin/main` includes `./serve.sh` with `uv sync --frozen`:
 
 ```bash
-ssh dvra-announcements 'cd /home/announce/dvra-repeater-announcements && git restore uv.lock'
+ssh dvra-announcements 'cd /home/announce/StationVoice && git restore uv.lock'
 ```
 
 After `./serve.sh` is frozen, restarts should not modify `uv.lock` again; confirm with `git status` on the Linux host if you want to be sure.

@@ -4,6 +4,6 @@ from importlib.metadata import PackageNotFoundError, version
 
 # The version lives only in pyproject.toml; bump it with `uv version --bump ...`.
 try:
-    __version__ = version("dvra-repeater-announcements")
+    __version__ = version("stationvoice")
 except PackageNotFoundError:
     __version__ = "0.0.0+unknown"
