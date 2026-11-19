@@ -3423,6 +3423,14 @@ async function refreshPhonemeMatches() {
   }
 }
 
+function sortPhonemeEntriesBySpelling() {
+  phonemeEntries.sort((a, b) =>
+    String(a.spelling || "").localeCompare(String(b.spelling || ""), undefined, {
+      sensitivity: "base",
+    }),
+  );
+}
+
 async function loadPhonemeDictionary() {
   setError("phoneme-error", "");
   const res = await fetch("/api/phonemes");
@@ -3432,6 +3440,7 @@ async function loadPhonemeDictionary() {
   }
   const payload = await res.json();
   phonemeEntries = Array.isArray(payload.entries) ? payload.entries : [];
+  sortPhonemeEntriesBySpelling();
   renderPhonemeRows();
   applyPhonemeReadOnly();
 }
@@ -3552,6 +3561,7 @@ async function putPhonemeEntries(entries) {
   }
   const payload = await res.json();
   phonemeEntries = payload.entries || [];
+  sortPhonemeEntriesBySpelling();
   renderPhonemeRows();
   schedulePhonemeMatches();
   return true;
