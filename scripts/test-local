@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo 'basedpyright:'
+uv run basedpyright
+
+echo ""
+
+echo 'pytest'
+uv run pytest -q
