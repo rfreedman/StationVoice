@@ -16,6 +16,18 @@ Whisper locates words in time. The splice point itself is a quiet stretch in the
 
 `faster-whisper` is the CTranslate2 build of Whisper. A process-wide cache in `app/newsline/engine/whisper_model.py` keeps one model instance per worker while a split runs. One CTranslate2 model is not safe to transcribe on from several threads at once. When the pipeline finishes (success or failure), `clear_whisper_models()` drops those instances so the announcer process does not keep multi-GB Whisper weights loaded for the rest of the week.
 
+### Cooler / slower splits (Linux host)
+
+By default a split uses up to four parallel QA workers and four ffmpeg exports, and each Whisper/torch run may use every CPU core — fine on a desktop, hard on a small fanless NUC (high CPU % and temperature). To trade wall-clock time for heat, set in `.env` (or the service environment) and restart:
+
+```bash
+ARNEWSLINE_QA_WORKERS=1
+ARNEWSLINE_EXPORT_WORKERS=1
+ARNEWSLINE_CPU_THREADS=2
+```
+
+`ARNEWSLINE_QA_WORKERS=1` alone is not enough on a hot box: a single Whisper worker can still saturate all cores via CTranslate2. Cap threads with `ARNEWSLINE_CPU_THREADS` as well.
+
 **rapidfuzz** is also on this path. It is fuzzy string matching: it compares Whisper’s words to phrases taken from the script (openers and sign-offs).
 
 The first successful split downloads `base.en` and `small.en`. Later splits reuse them. A split usually finishes in about a minute and a half.

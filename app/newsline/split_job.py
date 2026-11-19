@@ -31,6 +31,8 @@ def split_report(
         load_transcript,
     )
 
+    from app.newsline.engine.runtime_limits import apply_host_thread_caps
+
     audio_id = extract_report_id_from_audio(audio)
     text_id = extract_report_id_from_transcript(transcript)
     if audio_id is None and text_id is None:
@@ -40,6 +42,7 @@ def split_report(
     report_id = audio_id if audio_id is not None else text_id
     assert report_id is not None
 
+    apply_host_thread_caps()
     output_dir.mkdir(parents=True, exist_ok=True)
     set_log_file(output_dir / "run.log")
     segments = load_transcript(transcript)

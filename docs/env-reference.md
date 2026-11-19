@@ -39,6 +39,9 @@
 | `TTS_NEWS_CHECK_START` | `12:00` | Thursday start of the Amateur Radio Newsline check window (`HH:MM`, station timezone) |
 | `TTS_NEWS_CHECK_STOP` | `18:00` | Friday end of that window (`HH:MM`) |
 | `TTS_NEWS_CHECK_INTERVAL_HOURS` | `1` | Hours between checks inside the window (`0.5` is every 30 minutes; `0.5`–`24`) |
+| `ARNEWSLINE_QA_WORKERS` | `min(4, CPUs)` | Parallel Whisper workers for slice QA during a Newsline split. Set `1` for sequential ASR (cooler, slower) |
+| `ARNEWSLINE_EXPORT_WORKERS` | `4` | Parallel ffmpeg story exports during a split. Set `1` to encode one file at a time |
+| `ARNEWSLINE_CPU_THREADS` | *(all cores)* | Cap PyTorch / CTranslate2 / OpenMP threads used by a split. Example: `2` on a small NUC that runs hot |
 | `TTS_REPEATER_TIMEOUT_SECONDS` | `180` | Repeater time limit for one transmission (`30`–`600`). Spoken audio and Newsline story files must finish 2 seconds sooner |
 | `TTS_SLOT_HALF_WINDOW_MINUTES` | `10` | How far an overlay may shift from its slot center |
 | `TTS_TRIGGER_NOW` | `false` | Dev only: show **Trigger now** on schedule rows (does not change Last or the next slot) |

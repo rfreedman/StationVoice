@@ -14,36 +14,27 @@ from __future__ import annotations
 
 import gc
 import logging
-import os
 import threading
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from faster_whisper import WhisperModel
 
+from app.newsline.engine.runtime_limits import cpu_thread_count, qa_worker_count
+
 log = logging.getLogger("app.newsline")
 
 _whisper_model_cache: dict[tuple[str, int], WhisperModel] = {}
 _cache_lock = threading.Lock()
 
-# Cap RAM: each small.en instance is substantial. Override with env/CLI.
-_DEFAULT_QA_WORKERS_CAP = 4
-
-
-def qa_worker_count(requested: int | None = None) -> int:
-    """
-    How many parallel slice-QA Whisper workers to use.
-
-    Priority: explicit ``requested`` → ``ARNEWSLINE_QA_WORKERS`` →
-    ``min(4, cpu_count)`` (at least 1).
-    """
-    if requested is not None:
-        return max(1, requested)
-    env = os.environ.get("ARNEWSLINE_QA_WORKERS")
-    if env is not None and env.strip() != "":
-        return max(1, int(env))
-    cpus = os.cpu_count() or 2
-    return max(1, min(_DEFAULT_QA_WORKERS_CAP, cpus))
+# Re-export for callers that imported qa_worker_count from this module.
+__all__ = [
+    "cached_whisper_model_count",
+    "clear_whisper_models",
+    "get_whisper_model",
+    "qa_worker_count",
+    "warm_whisper_slots",
+]
 
 
 def get_whisper_model(model_name: str, *, slot: int = 0) -> WhisperModel:
@@ -53,9 +44,17 @@ def get_whisper_model(model_name: str, *, slot: int = 0) -> WhisperModel:
         if key not in _whisper_model_cache:
             from faster_whisper import WhisperModel as _WhisperModel
 
-            _whisper_model_cache[key] = _WhisperModel(
-                model_name, device="auto", compute_type="auto"
-            )
+            threads = cpu_thread_count()
+            if threads is None:
+                model = _WhisperModel(model_name, device="auto", compute_type="auto")
+            else:
+                model = _WhisperModel(
+                    model_name,
+                    device="auto",
+                    compute_type="auto",
+                    cpu_threads=threads,
+                )
+            _whisper_model_cache[key] = model
         return _whisper_model_cache[key]
 
 

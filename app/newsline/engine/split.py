@@ -304,7 +304,7 @@ def slice_audio(
     seg_by_index: dict[int, Segment] | None = None,
     reencode: bool = False,
     only_segment_indices: set[int] | None = None,
-    max_workers: int = 4,
+    max_workers: int | None = None,
     repeater_timeout: int = _DEFAULT_REPEATER_TIMEOUT_SEC,
 ) -> tuple[str, ...]:
     """
@@ -316,10 +316,13 @@ def slice_audio(
     A full export (``only_segment_indices`` unset) deletes ``*.mp3`` files in
     ``output_dir`` that are not in the new plan, after every planned file has
     been written. Selective QA re-export does not delete siblings.
+
+    ``max_workers`` defaults to ``ARNEWSLINE_EXPORT_WORKERS`` (or 4).
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     from app.newsline.engine.progress import log, progress
+    from app.newsline.engine.runtime_limits import export_worker_count
 
     del words, seg_by_index  # ends come from boundaries (inspect already applied)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -358,7 +361,7 @@ def slice_audio(
             log(f"  selective re-export: {total} of {len(slots)} slots")
 
         # Parallel ffmpeg is quality-neutral (independent slices of the same master).
-        workers = max(1, min(max_workers, total))
+        workers = max(1, min(export_worker_count(max_workers), total))
         done = 0
 
         def _one(item: tuple[ExportSlot, float, float]) -> str:
