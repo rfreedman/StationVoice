@@ -1332,3 +1332,7 @@ a.ghost {
 .btn-small-inline:hover {
   background-color: #1d4ed8;
 }
+
+a.no-underline {
+  text-decoration: none;
+}
