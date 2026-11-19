@@ -93,9 +93,17 @@ const PTT_TONE_SECONDS = 0.2;
  * @property {string} [name]
  * @property {string} [kind]
  * @property {string} [text]
+ * @property {string} [voice]
+ * @property {number} [speed]
+ * @property {number} [sentence_pause]
  * @property {boolean} [use_phoneme_dictionary]
  * @property {boolean} [too_long]
  * @property {number|null} [play_seconds]
+ * @property {string|null} [opening_announcement_id]
+ * @property {string|null} [station_id_announcement_id]
+ * @property {string|null} [closing_announcement_id]
+ * @property {string|null} [resume_announcement_id]
+ * @property {number} [ptt_gap_seconds]
  */
 
 /**
@@ -306,7 +314,9 @@ function updateAuthChrome() {
   document.getElementById("new-announcement").classList.toggle("hidden", readOnly);
   document.getElementById("new-schedule").classList.toggle("hidden", readOnly);
   document.getElementById("save-announcement").classList.toggle("hidden", readOnly);
+  syncDeleteAnnouncementButton();
   document.getElementById("save-schedule").classList.toggle("hidden", readOnly);
+  syncDeleteScheduleButton();
   const shuffle = document.getElementById("baseline-randomize");
   shuffle.disabled = readOnly;
   shuffle.closest("label")?.classList.toggle("hidden", readOnly);
@@ -1061,13 +1071,41 @@ function syncTriggerNowButtons() {
     }
   }
   syncDeleteButtons();
+  syncDeleteAnnouncementButton();
+  syncDeleteScheduleButton();
 }
 
 function syncDeleteButtons() {
-  const playing = announcementIsPlaying();
+  const playing = announcementIsPlaying() || editorPlaying;
   for (const button of document.querySelectorAll("[data-delete-button]")) {
     button.disabled = playing;
   }
+}
+
+function syncLibraryPlaybackButtons() {
+  const playing = editorPlaying;
+  for (const button of document.querySelectorAll("[data-library-speak]")) {
+    button.disabled = playing;
+  }
+  for (const button of document.querySelectorAll("[data-library-stop]")) {
+    button.disabled = !playing;
+  }
+}
+
+function syncDeleteAnnouncementButton() {
+  const button = document.getElementById("delete-announcement");
+  if (!button) return;
+  const show = Boolean(editingAnnouncementId) && !readOnly;
+  button.hidden = !show;
+  button.disabled = !show || announcementIsPlaying() || editorPlaying;
+}
+
+function syncDeleteScheduleButton() {
+  const button = document.getElementById("delete-schedule");
+  if (!button) return;
+  const show = Boolean(editingScheduleId) && !readOnly;
+  button.hidden = !show;
+  button.disabled = !show || announcementIsPlaying() || editorPlaying;
 }
 
 function tickUpcoming() {
@@ -1444,83 +1482,66 @@ function renderSchedules(rows) {
       <td class="row-actions"></td>
     `;
     const actions = tr.querySelector(".row-actions");
-    if (!readOnly) {
-      const del = document.createElement("button");
-      del.type = "button";
-      del.className = "danger";
-      del.textContent = "Delete";
-      del.dataset.deleteButton = "1";
-      del.disabled = announcementIsPlaying();
-      del.addEventListener("click", async (event) => {
+    if (!readOnly && triggerNowEnabled) {
+      const trigger = document.createElement("button");
+      trigger.type = "button";
+      trigger.className = "ghost";
+      trigger.dataset.triggerNow = "1";
+      const rowPending = pendingManualForSchedule(row.schedule_id);
+      const rowPlaying =
+        upcoming?.status === "running" && upcoming?.schedule_id === row.schedule_id;
+      trigger.textContent = triggerNowLabelForSchedule(row.schedule_id);
+      trigger.title = rowPlaying
+        ? "Announcement is on the air"
+        : rowPending
+          ? rowPending.phase === "clear_window"
+            ? "Waiting for clear-channel hold before transmit"
+            : "Deferred — waiting for channel to clear"
+          : "";
+      trigger.dataset.scheduleId = row.schedule_id;
+      trigger.disabled = announcementIsPlaying();
+      trigger.addEventListener("click", async (event) => {
         event.stopPropagation();
         if (announcementIsPlaying()) return;
-        const label = row.name ? `the schedule "${row.name}"` : "this schedule";
-        if (!window.confirm(`Are you sure that you want to delete ${label}?`)) return;
-        const res = await fetch(`/api/schedules/${row.schedule_id}`, { method: "DELETE" });
-        if (res.ok) refreshHome().catch(() => {});
-      });
-      actions.append(del);
-      if (triggerNowEnabled) {
-        const trigger = document.createElement("button");
-        trigger.type = "button";
-        trigger.className = "ghost";
-        trigger.dataset.triggerNow = "1";
-        const rowPending = pendingManualForSchedule(row.schedule_id);
-        const rowPlaying =
-          upcoming?.status === "running" && upcoming?.schedule_id === row.schedule_id;
-        trigger.textContent = triggerNowLabelForSchedule(row.schedule_id);
-        trigger.title = rowPlaying
-          ? "Announcement is on the air"
-          : rowPending
-            ? rowPending.phase === "clear_window"
-              ? "Waiting for clear-channel hold before transmit"
-              : "Deferred — waiting for channel to clear"
-            : "";
-        trigger.dataset.scheduleId = row.schedule_id;
-        trigger.disabled = announcementIsPlaying();
-        trigger.addEventListener("click", async (event) => {
-          event.stopPropagation();
-          if (announcementIsPlaying()) return;
-          triggerNowBusy = true;
-          syncTriggerNowButtons();
-          const controller = new AbortController();
-          const timeoutId = setTimeout(
-            () => controller.abort(),
-            manualTriggerFetchTimeoutMs(),
-          );
+        triggerNowBusy = true;
+        syncTriggerNowButtons();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(
+          () => controller.abort(),
+          manualTriggerFetchTimeoutMs(),
+        );
+        try {
+          const res = await fetch(`/api/schedules/${row.schedule_id}/trigger`, {
+            method: "POST",
+            signal: controller.signal,
+          });
+          let payload = {};
           try {
-            const res = await fetch(`/api/schedules/${row.schedule_id}/trigger`, {
-              method: "POST",
-              signal: controller.signal,
-            });
-            let payload = {};
-            try {
-              payload = await res.json();
-            } catch {
-              /* ignore */
-            }
-            if (!res.ok) {
-              const detail = payload.detail || res.statusText;
-              window.alert(typeof detail === "string" ? detail : "Could not trigger");
-              if (res.status === 409) await refreshHome().catch(() => {});
-            } else if (payload.result === "deferred") {
-              await refreshHome().catch(() => {});
-            }
-          } catch (err) {
-            if (err?.name === "AbortError") {
-              window.alert("Trigger timed out. If buttons stay disabled, refresh the page.");
-            } else {
-              window.alert("Could not trigger");
-            }
-          } finally {
-            clearTimeout(timeoutId);
-            triggerNowBusy = false;
-            await refreshHome().catch(() => {});
-            syncTriggerNowButtons();
+            payload = await res.json();
+          } catch {
+            /* ignore */
           }
-        });
-        actions.prepend(trigger);
-      }
+          if (!res.ok) {
+            const detail = payload.detail || res.statusText;
+            window.alert(typeof detail === "string" ? detail : "Could not trigger");
+            if (res.status === 409) await refreshHome().catch(() => {});
+          } else if (payload.result === "deferred") {
+            await refreshHome().catch(() => {});
+          }
+        } catch (err) {
+          if (err?.name === "AbortError") {
+            window.alert("Trigger timed out. If buttons stay disabled, refresh the page.");
+          } else {
+            window.alert("Could not trigger");
+          }
+        } finally {
+          clearTimeout(timeoutId);
+          triggerNowBusy = false;
+          await refreshHome().catch(() => {});
+          syncTriggerNowButtons();
+        }
+      });
+      actions.append(trigger);
     }
     tr.addEventListener("click", () => goToHash(`#/schedules/${row.schedule_id}`));
     body.append(tr);
@@ -1721,6 +1742,61 @@ function showLengthWarning(item) {
   box.classList.remove("hidden");
 }
 
+/**
+ * @param {{ schedule_id?: string, id?: string, name?: string }} row
+ * @returns {Promise<boolean>}
+ */
+async function deleteSchedule(row) {
+  const scheduleId = row?.schedule_id || row?.id;
+  if (!scheduleId) return false;
+  if (announcementIsPlaying() || editorPlaying) return false;
+  const label = row.name ? `the schedule "${row.name}"` : "this schedule";
+  if (!window.confirm(`Are you sure that you want to delete ${label}?`)) return false;
+  const res = await fetch(`/api/schedules/${scheduleId}`, { method: "DELETE" });
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      detail = (await res.json()).detail || detail;
+    } catch {
+      /* ignore */
+    }
+    window.alert(typeof detail === "string" ? detail : "Could not delete");
+    return false;
+  }
+  return true;
+}
+
+/**
+ * @param {AnnouncementItem} item
+ * @returns {Promise<boolean>}
+ */
+async function deleteAnnouncement(item) {
+  if (!item?.id) return false;
+  if (announcementIsPlaying() || editorPlaying) return false;
+  const usedBy = schedulesUsingAnnouncement(item.id);
+  if (usedBy.length > 0) {
+    const names = usedBy.map((row) => row.name).join(", ");
+    window.alert(
+      `This announcement cannot be deleted because it is in use.\n\nSchedules: ${names}`,
+    );
+    return false;
+  }
+  const label = item.name ? `the announcement "${item.name}"` : "this announcement";
+  if (!window.confirm(`Are you sure that you want to delete ${label}?`)) return false;
+  const res = await fetch(`/api/announcements/${item.id}`, { method: "DELETE" });
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      detail = (await res.json()).detail || detail;
+    } catch {
+      /* ignore */
+    }
+    window.alert(typeof detail === "string" ? detail : "Could not delete");
+    return false;
+  }
+  return true;
+}
+
 /** @param {Array.<AnnouncementItem>} items */
 function renderLibrary(items) {
   const body = document.getElementById("library-rows");
@@ -1745,39 +1821,29 @@ function renderLibrary(items) {
       <td>${escapeHtml(lengthLabel)}</td>
       <td class="row-actions"></td>
     `;
-    const del = document.createElement("button");
-    del.type = "button";
-    del.className = "danger";
-    del.textContent = "Delete";
-    del.dataset.deleteButton = "1";
-    del.disabled = announcementIsPlaying();
-    del.addEventListener("click", async (event) => {
+    const actions = tr.querySelector(".row-actions");
+    const speakBtn = document.createElement("button");
+    speakBtn.type = "button";
+    speakBtn.className = "ghost";
+    speakBtn.textContent = "Speak";
+    speakBtn.dataset.librarySpeak = "1";
+    speakBtn.disabled = editorPlaying;
+    speakBtn.addEventListener("click", (event) => {
       event.stopPropagation();
-      if (announcementIsPlaying()) return;
-      const usedBy = schedulesUsingAnnouncement(item.id);
-      if (usedBy.length > 0) {
-        const names = usedBy.map((row) => row.name).join(", ");
-        window.alert(
-          `This announcement cannot be deleted because it is in use.\n\nSchedules: ${names}`,
-        );
-        return;
-      }
-      const label = item.name ? `the announcement "${item.name}"` : "this announcement";
-      if (!window.confirm(`Are you sure that you want to delete ${label}?`)) return;
-      const res = await fetch(`/api/announcements/${item.id}`, { method: "DELETE" });
-      if (!res.ok) {
-        let detail = res.statusText;
-        try {
-          detail = (await res.json()).detail || detail;
-        } catch {
-          /* ignore */
-        }
-        window.alert(typeof detail === "string" ? detail : "Could not delete");
-        return;
-      }
-      refreshHome().catch(() => {});
+      if (editorPlaying) return;
+      speakLibraryItem(item).catch((err) => window.alert(err.message || "Could not speak"));
     });
-    if (!readOnly) tr.querySelector(".row-actions").append(del);
+    const stopBtn = document.createElement("button");
+    stopBtn.type = "button";
+    stopBtn.className = "ghost";
+    stopBtn.textContent = "Stop";
+    stopBtn.dataset.libraryStop = "1";
+    stopBtn.disabled = !editorPlaying;
+    stopBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      stop();
+    });
+    actions.append(speakBtn, stopBtn);
     tr.addEventListener("click", () => goToHash(`#/announcements/${item.id}`));
     body.append(tr);
   }
@@ -2189,6 +2255,10 @@ function setPlaybackButtons(playing) {
   const stopNews = document.getElementById("newsline-stop");
   if (play) play.disabled = playing;
   if (stopNews) stopNews.disabled = !playing;
+  syncLibraryPlaybackButtons();
+  syncDeleteButtons();
+  syncDeleteAnnouncementButton();
+  syncDeleteScheduleButton();
 }
 
 function setEditorPlaying(playing) {
@@ -2321,6 +2391,7 @@ function blankAnnouncement() {
   updateDeliveryLabels();
   editorPlaySeconds = null;
   showKnownPlayLength();
+  syncDeleteAnnouncementButton();
 }
 
 async function loadAnnouncement(id) {
@@ -2356,6 +2427,7 @@ async function loadAnnouncement(id) {
       ? savedSeconds
       : null;
   showKnownPlayLength();
+  syncDeleteAnnouncementButton();
 }
 
 async function saveAnnouncement() {
@@ -2454,13 +2526,23 @@ async function errorDetail(res) {
   return res.statusText || "Could not save";
 }
 
-async function speak() {
-  const text = textEl.value.trim();
+/**
+ * @param {{
+ *   text: string,
+ *   voice: string,
+ *   speed: number,
+ *   sentence_pause: number,
+ *   use_phoneme_dictionary: boolean,
+ *   persistPrefs?: boolean,
+ * }} opts
+ */
+async function speakWithParams(opts) {
+  const text = String(opts.text || "").trim();
   if (!text) {
     setStatus("Type something first.", "error");
     return;
   }
-  persist();
+  if (opts.persistPrefs) persist();
   cancelInFlight();
   const mySession = session;
   const controller = new AbortController();
@@ -2475,10 +2557,10 @@ async function speak() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         text,
-        voice: voiceEl.value,
-        speed: Number(speedEl.value),
-        sentence_pause: Number(pauseEl.value),
-        use_phoneme_dictionary: document.getElementById("use-phoneme-dictionary").checked,
+        voice: opts.voice,
+        speed: Number(opts.speed),
+        sentence_pause: Number(opts.sentence_pause),
+        use_phoneme_dictionary: Boolean(opts.use_phoneme_dictionary),
       }),
       signal: controller.signal,
     });
@@ -2513,16 +2595,56 @@ async function speak() {
   showKnownPlayLength();
 }
 
+async function speak() {
+  await speakWithParams({
+    text: textEl.value,
+    voice: voiceEl.value,
+    speed: Number(speedEl.value),
+    sentence_pause: Number(pauseEl.value),
+    use_phoneme_dictionary: document.getElementById("use-phoneme-dictionary").checked,
+    persistPrefs: true,
+  });
+}
+
+/**
+ * @param {AnnouncementItem} item
+ */
+async function speakLibraryItem(item) {
+  if (!item) return;
+  if ((item.kind || "tts") === "newsline") {
+    await playNewsline({
+      opening_announcement_id: item.opening_announcement_id || null,
+      station_id_announcement_id: item.station_id_announcement_id || null,
+      closing_announcement_id: item.closing_announcement_id || null,
+      resume_announcement_id: item.resume_announcement_id || null,
+      ptt_gap_seconds: item.ptt_gap_seconds,
+    });
+    return;
+  }
+  await speakWithParams({
+    text: item.text || "",
+    voice: item.voice || voiceEl.value,
+    speed: Number(item.speed ?? 1),
+    sentence_pause: Number(item.sentence_pause ?? 0.25),
+    use_phoneme_dictionary: item.use_phoneme_dictionary !== false,
+  });
+}
+
 function pttLeadSeconds() {
   const raw = Number(catalog?.ptt_lead_seconds);
   if (!Number.isFinite(raw) || raw <= 0) return 0;
   return raw;
 }
 
+/** @param {number|null|undefined} raw */
+function clampNewslineGapSeconds(raw) {
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(30, Math.max(0, value));
+}
+
 function newslineGapSeconds() {
-  const raw = Number(document.getElementById("news-gap")?.value);
-  if (!Number.isFinite(raw)) return 0;
-  return Math.min(30, Math.max(0, raw));
+  return clampNewslineGapSeconds(document.getElementById("news-gap")?.value);
 }
 
 async function abortableWait(seconds, signal, ctx) {
@@ -2605,8 +2727,33 @@ async function readExact(reader, leftover, size) {
   return { bytes: buffer.slice(0, size), leftover: buffer.slice(size) };
 }
 
-async function playNewsline() {
+/**
+ * @param {{
+ *   opening_announcement_id?: string|null,
+ *   station_id_announcement_id?: string|null,
+ *   closing_announcement_id?: string|null,
+ *   resume_announcement_id?: string|null,
+ *   ptt_gap_seconds?: number|null,
+ * }=} opts
+ */
+async function playNewsline(opts) {
   showError("announcement-error", "");
+  const payload = opts
+    ? {
+        opening_announcement_id: opts.opening_announcement_id || null,
+        station_id_announcement_id: opts.station_id_announcement_id || null,
+        closing_announcement_id: opts.closing_announcement_id || null,
+        resume_announcement_id: opts.resume_announcement_id || null,
+      }
+    : {
+        opening_announcement_id: document.getElementById("news-opening").value || null,
+        station_id_announcement_id: document.getElementById("news-station").value || null,
+        closing_announcement_id: document.getElementById("news-closing").value || null,
+        resume_announcement_id: document.getElementById("news-resume").value || null,
+      };
+  const gapSeconds = opts
+    ? clampNewslineGapSeconds(opts.ptt_gap_seconds)
+    : newslineGapSeconds();
   cancelInFlight();
   const mySession = session;
   const controller = new AbortController();
@@ -2614,19 +2761,13 @@ async function playNewsline() {
   const currentPlayer = new PcmPlayer();
   player = currentPlayer;
   const leadSeconds = pttLeadSeconds();
-  const gapSeconds = newslineGapSeconds();
   setEditorPlaying(true);
   setStatus("Preparing Newsline…");
   try {
     const res = await fetch("/api/newsline/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        opening_announcement_id: document.getElementById("news-opening").value || null,
-        station_id_announcement_id: document.getElementById("news-station").value || null,
-        closing_announcement_id: document.getElementById("news-closing").value || null,
-        resume_announcement_id: document.getElementById("news-resume").value || null,
-      }),
+      body: JSON.stringify(payload),
       signal: controller.signal,
     });
     if (mySession !== session) return;
@@ -3768,7 +3909,7 @@ async function route() {
       else if (editorKey.startsWith("sched")) showScreen("view-schedule");
       return;
     }
-    if (String(editorKey || "").startsWith("ann") && nextKey !== editorKey) {
+    if (editorPlaying && nextKey !== editorKey) {
       stopEditorPlayback();
     }
     if (editorKey === "phonemes" && nextKey !== "phonemes") {
@@ -3880,6 +4021,7 @@ async function route() {
         }
         fillScheduleForm(await res.json());
       }
+      syncDeleteScheduleButton();
       applyEditorReadOnly();
       editorKey = nextKey;
       markEditorClean();
@@ -4023,11 +4165,45 @@ document.getElementById("save-announcement").addEventListener("click", () => {
   if (readOnly) return;
   saveAnnouncement().catch((err) => window.alert(err.message));
 });
+document.getElementById("delete-announcement").addEventListener("click", () => {
+  if (readOnly || !editingAnnouncementId) return;
+  const item =
+    announcements.find((row) => row.id === editingAnnouncementId) || {
+      id: editingAnnouncementId,
+      name: nameEl.value.trim(),
+    };
+  deleteAnnouncement(item)
+    .then((ok) => {
+      if (!ok) return;
+      clearEditorGuard();
+      goToHash("#/");
+      return refreshHome();
+    })
+    .catch((err) => window.alert(err.message));
+});
 document.getElementById("save-schedule").addEventListener("click", () => {
   if (readOnly) return;
   saveSchedule().catch((err) => window.alert(err.message));
 });
-document.getElementById("speak").addEventListener("click", speak);
+document.getElementById("delete-schedule").addEventListener("click", () => {
+  if (readOnly || !editingScheduleId) return;
+  const row =
+    schedules.find((item) => item.schedule_id === editingScheduleId) || {
+      schedule_id: editingScheduleId,
+      name: document.getElementById("sched-name").value.trim(),
+    };
+  deleteSchedule(row)
+    .then((ok) => {
+      if (!ok) return;
+      clearEditorGuard();
+      goToHash("#/");
+      return refreshHome();
+    })
+    .catch((err) => window.alert(err.message));
+});
+document.getElementById("speak").addEventListener("click", () => {
+  speak().catch(() => {});
+});
 document.getElementById("stop").addEventListener("click", stop);
 document.getElementById("newsline-play").addEventListener("click", () => {
   playNewsline().catch(() => {});

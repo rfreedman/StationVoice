@@ -49,8 +49,19 @@ def test_schedule_save_is_spaced_below_the_enabled_checkbox() -> None:
     schedule = html.split('id="view-schedule"', 1)[1].split('id="schedule-error"', 1)[0]
     enabled = schedule.split('id="sched-enabled"', 1)[1]
     assert enabled.index("Enabled") < enabled.index('id="save-schedule"')
+    assert 'id="delete-schedule"' in schedule
     rule = css.split("#view-schedule.screen.active", 1)[1].split("}", 1)[0]
     assert "gap: 22px" in rule
+
+
+def test_schedule_list_has_no_delete_detail_does() -> None:
+    source = APP_JS.read_text(encoding="utf-8")
+    html = (APP_JS.parent / "index.html").read_text(encoding="utf-8")
+    render = source.split("function renderSchedules", 1)[1].split("\nfunction ", 1)[0]
+    assert 'textContent = "Delete"' not in render
+    assert "function deleteSchedule(" in source
+    assert 'id="delete-schedule"' in html
+    assert "syncDeleteScheduleButton" in source
 
 
 def test_save_stays_disabled_until_the_editor_differs_from_its_original() -> None:
@@ -75,10 +86,38 @@ def test_save_stays_disabled_until_the_editor_differs_from_its_original() -> Non
 def test_playback_stops_when_leaving_the_announcement_editor() -> None:
     source = APP_JS.read_text(encoding="utf-8")
     helper = source.split("function stopEditorPlayback()", 1)[1].split("function stop()", 1)[0]
-    assert 'startsWith("ann") && nextKey !== editorKey' in source
+    assert "editorPlaying && nextKey !== editorKey" in source
     assert 'addEventListener("pagehide"' in source
     assert "stopEditorPlayback()" in source.split("beforeunload")[1]
     assert "showKnownPlayLength()" in helper
+
+
+def test_library_has_speak_stop_and_detail_has_delete() -> None:
+    source = APP_JS.read_text(encoding="utf-8")
+    html = (APP_JS.parent / "index.html").read_text(encoding="utf-8")
+    library = source.split("function renderLibrary", 1)[1].split("\nfunction ", 1)[0]
+    assert 'textContent = "Speak"' in library
+    assert 'textContent = "Stop"' in library
+    assert 'dataset.librarySpeak = "1"' in library
+    assert 'dataset.libraryStop = "1"' in library
+    assert 'textContent = "Delete"' not in library
+    assert "function deleteAnnouncement(" in source
+    assert "schedulesUsingAnnouncement" in source.split("async function deleteAnnouncement", 1)[1].split(
+        "\nfunction ", 1
+    )[0]
+    assert 'id="delete-announcement"' in html
+    announcement = html.split('id="view-announcement"', 1)[1].split('id="view-schedule"', 1)[0]
+    spoken_body = announcement.split('<div id="spoken-fields">', 1)[1].split(
+        '</div>\n\n        <div class="actions">', 1
+    )[0]
+    # Save/Delete must sit outside spoken-fields so Newsline can use them.
+    assert 'id="save-announcement"' not in spoken_body
+    assert 'id="delete-announcement"' not in spoken_body
+    assert 'id="save-announcement"' in announcement
+    assert 'id="delete-announcement"' in announcement
+    assert "async function speakWithParams(" in source
+    assert "async function speakLibraryItem(" in source
+    assert "async function playNewsline(opts)" in source
 
 
 def test_newsline_preview_uses_a_lower_tone_for_ptt_release() -> None:

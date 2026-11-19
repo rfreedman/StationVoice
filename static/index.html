@@ -915,12 +915,13 @@ Repeater timeout 180 seconds.</p>
             <input id="busy-giveup" type="number" min="5" max="600" step="1" value="300" />
           </div>
         </section>
+        </div>
 
         <div class="actions">
           <button type="button" class="primary" id="save-announcement" disabled>Save</button>
+          <button type="button" class="danger" id="delete-announcement" data-delete-button="1" hidden>Delete</button>
         </div>
         <p id="announcement-error" class="status-error" hidden></p>
-        </div>
       </section>
 
       <section id="view-schedule" class="screen">
@@ -1022,6 +1023,7 @@ Repeater timeout 180 seconds.</p>
 
         <div class="actions">
           <button type="button" class="primary" id="save-schedule" disabled>Save</button>
+          <button type="button" class="danger" id="delete-schedule" data-delete-button="1" hidden>Delete</button>
         </div>
         <p id="schedule-error" class="status-error" hidden></p>
       </section>
