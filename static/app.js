@@ -3154,6 +3154,9 @@ async function refreshAdminConfig() {
   const emailPlugin = Boolean(payload.admin_email_plugin);
   const alertsPanel = document.getElementById("admin-alerts-panel");
   alertsPanel.classList.toggle("hidden", !emailPlugin);
+  const notifyToggle = document.getElementById("cfg-admin-email-notifications");
+  notifyToggle.checked = emailPlugin ? Boolean(payload.admin_email_notifications) : false;
+  notifyToggle.disabled = !emailPlugin;
   document.getElementById("cfg-admin-emails").value = emailPlugin
     ? payload.admin_emails || ""
     : "";
@@ -3166,6 +3169,25 @@ async function refreshAdminConfig() {
   longEl.textContent = current.long_description || "";
   longEl.classList.toggle("hidden", !current.long_description);
   renderConfigHistory(payload);
+}
+
+async function setAdminEmailNotifications(enabled) {
+  const res = await fetch("/api/admin/email-notifications", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled: Boolean(enabled) }),
+  });
+  let payload = {};
+  try {
+    payload = await res.json();
+  } catch {
+    /* ignore */
+  }
+  if (!res.ok) {
+    throw new Error(apiErrorMessage(payload, "Could not update email notifications"));
+  }
+  const toggle = document.getElementById("cfg-admin-email-notifications");
+  toggle.checked = Boolean(payload.enabled);
 }
 
 function renderConfigHistory(payload) {
@@ -3220,6 +3242,7 @@ function renderConfigHistory(payload) {
 
 async function saveAdminConfig() {
   setError("config-error", "");
+  const alertsHidden = document.getElementById("admin-alerts-panel").classList.contains("hidden");
   const res = await fetch("/api/admin/config", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -3227,9 +3250,10 @@ async function saveAdminConfig() {
       values: readConfigForm(),
       short_description: document.getElementById("cfg-short").value,
       long_description: document.getElementById("cfg-long").value,
-      admin_emails: document.getElementById("admin-alerts-panel").classList.contains("hidden")
-        ? ""
-        : document.getElementById("cfg-admin-emails").value.trim(),
+      admin_emails: alertsHidden ? "" : document.getElementById("cfg-admin-emails").value.trim(),
+      admin_email_notifications: alertsHidden
+        ? null
+        : document.getElementById("cfg-admin-email-notifications").checked,
     }),
   });
   let payload = {};
@@ -3922,6 +3946,14 @@ document.getElementById("admin-tab-environment").addEventListener("click", () =>
 document.getElementById("admin-tab-branding").addEventListener("click", () => goToHash("#/admin/branding"));
 document.getElementById("config-save").addEventListener("click", () => {
   saveAdminConfig().catch((err) => window.alert(err.message));
+});
+document.getElementById("cfg-admin-email-notifications").addEventListener("change", (event) => {
+  const toggle = /** @type {HTMLInputElement} */ (event.currentTarget);
+  const wanted = toggle.checked;
+  setAdminEmailNotifications(wanted).catch((err) => {
+    toggle.checked = !wanted;
+    window.alert(err.message);
+  });
 });
 document.getElementById("logo-display-square").addEventListener("change", applyLogoSquareMode);
 document.getElementById("logo-display-width").addEventListener("input", () => {

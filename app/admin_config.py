@@ -164,6 +164,8 @@ class ConfigState(BaseModel):
     admin_emails: str = ""
     # True when a drop-in AdminNotifier plugin is loaded under plugins/.
     admin_email_plugin: bool = False
+    # Operator mute for admin emails; .env.secrets only (default on when unset).
+    admin_email_notifications: bool = False
 
 
 def config_generation() -> int:
@@ -240,6 +242,20 @@ def apply_admin_emails(raw: str) -> str:
     return normalized
 
 
+def read_admin_email_notifications() -> bool:
+    """ADMIN_EMAIL_NOTIFICATIONS from the process environment; missing means enabled."""
+    raw = os.environ.get("ADMIN_EMAIL_NOTIFICATIONS", "1").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+def apply_admin_email_notifications(enabled: bool) -> bool:
+    """Write ADMIN_EMAIL_NOTIFICATIONS to .env.secrets and os.environ."""
+    value = "1" if enabled else "0"
+    os.environ["ADMIN_EMAIL_NOTIFICATIONS"] = value
+    update_dotenv(secrets_dotenv_path(), {"ADMIN_EMAIL_NOTIFICATIONS": value})
+    return enabled
+
+
 def history_path() -> Path:
     override = os.environ.get("TTS_CONFIG_HISTORY_PATH", "").strip()
     if override:
@@ -290,6 +306,7 @@ def save_config(
     long_description: str,
     *,
     admin_emails: str | None = None,
+    admin_email_notifications: bool | None = None,
 ) -> ConfigHistoryFile:
     from app.notify_email import admin_email_plugin_active
 
@@ -298,9 +315,12 @@ def save_config(
     checked = RuntimeConfigValues.model_validate(values.model_dump())
     with _lock:
         _apply(checked)
-        # Ignore recipient edits when no email plugin is loaded (UI is hidden).
-        if admin_emails is not None and admin_email_plugin_active():
-            _ = apply_admin_emails(admin_emails)
+        # Ignore recipient / mute edits when no email plugin is loaded (UI is hidden).
+        if admin_email_plugin_active():
+            if admin_emails is not None:
+                _ = apply_admin_emails(admin_emails)
+            if admin_email_notifications is not None:
+                _ = apply_admin_email_notifications(admin_email_notifications)
         document = _read_history()
         entries = list(document.entries) if document is not None else []
         entry = _make_entry(checked, short, long)
@@ -357,6 +377,9 @@ def config_state(document: ConfigHistoryFile, *, changed: bool) -> ConfigState:
         changed=changed,
         admin_emails=read_admin_emails() if plugin_active else "",
         admin_email_plugin=plugin_active,
+        admin_email_notifications=(
+            read_admin_email_notifications() if plugin_active else False
+        ),
     )
 
 

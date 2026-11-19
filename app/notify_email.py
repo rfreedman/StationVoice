@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import Sequence
 
 from app.notify.loader import (
@@ -18,6 +19,7 @@ DEFAULT_ALERT_DEBOUNCE_SECONDS = 15 * 60
 
 __all__ = [
     "DEFAULT_ALERT_DEBOUNCE_SECONDS",
+    "admin_email_notifications_enabled",
     "admin_email_plugin_active",
     "alert_admins",
     "clear_alert_debounce_for_tests",
@@ -30,6 +32,14 @@ __all__ = [
 ]
 
 
+def admin_email_notifications_enabled() -> bool:
+    """True when a plugin is loaded and the operator mute is not engaged."""
+    raw = os.environ.get("ADMIN_EMAIL_NOTIFICATIONS", "1").strip().lower()
+    if raw not in {"1", "true", "yes", "on"}:
+        return False
+    return admin_email_plugin_active()
+
+
 def send_email(subject: str, body: str, recipients: Sequence[str]) -> None:
     """Send email to the given addresses. Never raises."""
     get_notifier().send_email(subject, body, recipients)
@@ -37,11 +47,15 @@ def send_email(subject: str, body: str, recipients: Sequence[str]) -> None:
 
 def notify_admins(subject: str, body: str) -> None:
     """Send email to ADMIN_EMAILS when an email plugin is active. Never raises."""
+    if not admin_email_notifications_enabled():
+        return
     get_notifier().notify_admins(subject, body)
 
 
 def notify_admins_lifecycle(subject: str, body: str) -> None:
     """Start/stop notices via the active plugin. Never raises."""
+    if not admin_email_notifications_enabled():
+        return
     get_notifier().notify_admins_lifecycle(subject, body)
 
 
@@ -58,6 +72,8 @@ def alert_admins(
         logger.error("%s", body, exc_info=exc)
     else:
         logger.error("%s", body)
+    if not admin_email_notifications_enabled():
+        return
     get_notifier().alert_admins(
         subject,
         body,

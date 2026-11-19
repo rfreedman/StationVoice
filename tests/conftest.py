@@ -69,9 +69,14 @@ def restore_operator_settings() -> Iterator[None]:
 
     snapshot = admin_config.current_values()
     emails_snapshot = os.environ.get("ADMIN_EMAILS", "")
+    notifications_snapshot = os.environ.get("ADMIN_EMAIL_NOTIFICATIONS", "")
     generation = admin_config.config_generation()
     yield
     os.environ["ADMIN_EMAILS"] = emails_snapshot
+    if notifications_snapshot:
+        os.environ["ADMIN_EMAIL_NOTIFICATIONS"] = notifications_snapshot
+    else:
+        os.environ.pop("ADMIN_EMAIL_NOTIFICATIONS", None)
     assign_live_settings(
         station_call=snapshot.station_call,
         station_name=snapshot.station_name,

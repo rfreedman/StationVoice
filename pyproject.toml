@@ -1,6 +1,6 @@
 [project]
 name = "stationvoice"
-version = "0.28.6"
+version = "0.28.7"
 description = "StationVoice - ham radio repeater announcements with Piper TTS speech,a FastAPI UI, scheduler, and DRA-36M radio control"
 readme = "README.md"
 requires-python = ">=3.12"

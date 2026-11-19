@@ -39,6 +39,7 @@ def _save(
     long: str = "",
     *,
     admin_emails: str | None = None,
+    admin_email_notifications: bool | None = None,
 ) -> ConfigState:
     body: dict[str, object] = {
         "values": values,
@@ -47,6 +48,8 @@ def _save(
     }
     if admin_emails is not None:
         body["admin_emails"] = admin_emails
+    if admin_email_notifications is not None:
+        body["admin_email_notifications"] = admin_email_notifications
     res = client.post("/api/admin/config", json=body)
     assert res.status_code == 200, res.text
     return ConfigState.model_validate(json_dict(res))
@@ -186,6 +189,7 @@ def test_admin_email_plugin_absent_by_default(client: TestClient) -> None:
     state = _state(client)
     assert state.admin_email_plugin is False
     assert state.admin_emails == ""
+    assert state.admin_email_notifications is False
 
 
 def test_admin_email_plugin_absent_hides_recipients_and_ignores_save(
@@ -195,16 +199,18 @@ def test_admin_email_plugin_absent_hides_recipients_and_ignores_save(
 
     secrets_path = Path(os.environ["TTS_SECRETS_DOTENV_PATH"])
     _ = secrets_path.write_text(
-        'ADMIN_EMAILS="keep@example.com"\n',
+        'ADMIN_EMAILS="keep@example.com"\nADMIN_EMAIL_NOTIFICATIONS=0\n',
         encoding="utf-8",
     )
     os.environ["ADMIN_EMAILS"] = "keep@example.com"
+    os.environ["ADMIN_EMAIL_NOTIFICATIONS"] = "0"
     monkeypatch.setenv("TTS_PLUGINS_DIR", str(tmp_path))
     notify_email.reset_notifier_for_tests()
 
     state = _state(client)
     assert state.admin_email_plugin is False
     assert state.admin_emails == ""
+    assert state.admin_email_notifications is False
 
     values = _values(state)
     values["station_name"] = "No Email Club"
@@ -213,11 +219,73 @@ def test_admin_email_plugin_absent_hides_recipients_and_ignores_save(
         values,
         "Without plugin",
         admin_emails="attacker@example.com",
+        admin_email_notifications=True,
     )
     assert saved.admin_email_plugin is False
     assert saved.admin_emails == ""
+    assert saved.admin_email_notifications is False
     assert os.environ["ADMIN_EMAILS"] == "keep@example.com"
+    assert os.environ["ADMIN_EMAIL_NOTIFICATIONS"] == "0"
     assert 'ADMIN_EMAILS="keep@example.com"' in secrets_path.read_text(encoding="utf-8")
+    assert "ADMIN_EMAIL_NOTIFICATIONS=0" in secrets_path.read_text(encoding="utf-8")
+
+    denied = client.put("/api/admin/email-notifications", json={"enabled": True})
+    assert denied.status_code == 400
+    assert os.environ["ADMIN_EMAIL_NOTIFICATIONS"] == "0"
+
+    notify_email.reset_notifier_for_tests()
+
+
+def test_admin_email_notifications_toggle_and_survive_revert(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from app import notify_email
+    from tests.notify_plugin_util import install_bird_plugin, install_stub_bird_sdk
+
+    _ = install_stub_bird_sdk()
+    _ = install_bird_plugin(tmp_path)
+    monkeypatch.setenv("TTS_PLUGINS_DIR", str(tmp_path))
+    notify_email.reset_notifier_for_tests()
+
+    secrets_path = Path(os.environ["TTS_SECRETS_DOTENV_PATH"])
+    _ = secrets_path.write_text(
+        'ADMIN_EMAILS="ops@example.com"\n',
+        encoding="utf-8",
+    )
+    os.environ["ADMIN_EMAILS"] = "ops@example.com"
+    os.environ.pop("ADMIN_EMAIL_NOTIFICATIONS", None)
+
+    state = _state(client)
+    assert state.admin_email_plugin is True
+    assert state.admin_email_notifications is True
+
+    muted = client.put("/api/admin/email-notifications", json={"enabled": False})
+    assert muted.status_code == 200, muted.text
+    muted_body = json_dict(muted)
+    assert muted_body["enabled"] is False
+    assert muted_body["admin_email_plugin"] is True
+    assert os.environ["ADMIN_EMAIL_NOTIFICATIONS"] == "0"
+    assert "ADMIN_EMAIL_NOTIFICATIONS=0" in secrets_path.read_text(encoding="utf-8")
+
+    values = _values(_state(client))
+    values["station_name"] = "Mute Club"
+    first = _save(client, values, "While muted", admin_email_notifications=False)
+    assert first.admin_email_notifications is False
+
+    values["station_name"] = "Still muted"
+    second = _save(client, values, "Later", admin_email_notifications=True)
+    assert second.admin_email_notifications is True
+    assert os.environ["ADMIN_EMAIL_NOTIFICATIONS"] == "1"
+
+    # Flip off again, then revert config history — mute flag must stay off.
+    again = client.put("/api/admin/email-notifications", json={"enabled": False})
+    assert again.status_code == 200
+    reverted = client.post("/api/admin/config/revert", json={"id": first.current.id})
+    assert reverted.status_code == 200, reverted.text
+    body = ConfigState.model_validate(json_dict(reverted))
+    assert body.current.values.station_name == "Mute Club"
+    assert body.admin_email_notifications is False
+    assert os.environ["ADMIN_EMAIL_NOTIFICATIONS"] == "0"
 
     notify_email.reset_notifier_for_tests()
 

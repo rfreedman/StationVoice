@@ -108,7 +108,7 @@ Optional `.env` in the project root (see [`.env.example`](../.env.example)). Var
 
 ### Admin email (optional plugin)
 
-Admin email delivery is optional. Core always logs operational failures via `alert_admins`; email is only sent when a notifier plugin is present under `plugins/` (that directory is empty by default and is the only switch — not the Bird env vars).
+Admin email delivery is optional. Core always logs operational failures via `alert_admins`; email is only sent when a notifier plugin is present under `plugins/` (that directory is empty by default) **and** `ADMIN_EMAIL_NOTIFICATIONS` is enabled (default on when unset). Use Admin → Environment → **Send email notifications** to mute start/stop and alert emails without removing the plugin.
 
 An example Bird (MessageBird) plugin ships in [`plugin-examples/bird_email.py`](../plugin-examples/bird_email.py). Enable it by copying that file into `plugins/` (any filename works). `plugin-examples/` is never loaded. Other notifier plugins should follow the same pattern: document their Python packages in the module docstring; install those packages into the venv separately (they are not project dependencies).
 
@@ -127,6 +127,7 @@ If the plugin is in `plugins/` but its Python packages or send credentials are m
 | `EMAIL_FROM` | *(required to send)* | From address |
 | `EMAIL_FROM_NAME` | `Repeater Announcements` | From display name |
 | `ADMIN_EMAILS` | *(required to send)* | Comma-separated admin recipients (editable in Admin UI when a plugin is present) |
+| `ADMIN_EMAIL_NOTIFICATIONS` | `1` | `1`/`0` (or true/false): send admin emails when a plugin is present. Missing means on. Not part of config history / revert. |
 | `TTS_PLUGINS_DIR` | `<repo>/plugins` | Override plugins directory (tests) |
 
 Duplicate alerts with the same debounce key are suppressed for 15 minutes.

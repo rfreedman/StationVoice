@@ -139,6 +139,39 @@ def test_notify_admins_lifecycle_sends_when_configured(
     assert send.call_args.kwargs["text"] == "ready"
 
 
+def test_notifications_disabled_skips_lifecycle_notify_and_alert(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setenv("BIRD_API_KEY", "bk_test")
+    monkeypatch.setenv("EMAIL_FROM", "repeater@example.com")
+    monkeypatch.setenv("ADMIN_EMAILS", "ops@example.com")
+    monkeypatch.setenv("ADMIN_EMAIL_NOTIFICATIONS", "0")
+    send = _patch_bird(monkeypatch)
+
+    assert notify_email.admin_email_notifications_enabled() is False
+    notify_email.notify_admins("Admin subject", "Admin body")
+    notify_email.notify_admins_lifecycle("Started", "ready")
+    with caplog.at_level("ERROR", logger="app.notify_email"):
+        notify_email.alert_admins("Boom", "Something broke", key="mute-test")
+
+    send.assert_not_called()
+    assert "Something broke" in caplog.text
+
+
+def test_notifications_enabled_by_default_when_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BIRD_API_KEY", "bk_test")
+    monkeypatch.setenv("EMAIL_FROM", "repeater@example.com")
+    monkeypatch.setenv("ADMIN_EMAILS", "ops@example.com")
+    monkeypatch.delenv("ADMIN_EMAIL_NOTIFICATIONS", raising=False)
+    send = _patch_bird(monkeypatch)
+
+    assert notify_email.admin_email_notifications_enabled() is True
+    notify_email.notify_admins("Admin subject", "Admin body")
+    send.assert_called_once()
+
+
 def test_alert_admins_notifies_and_includes_exc(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

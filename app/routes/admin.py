@@ -11,6 +11,7 @@ from pydantic import BaseModel, ValidationError
 from app.admin_config import (
     ConfigState,
     RuntimeConfigValues,
+    apply_admin_email_notifications,
     bump_config_generation,
     clean_long,
     clean_short,
@@ -30,6 +31,7 @@ from app.branding import (
     save_logo_display,
 )
 from app.deps import AdminUser
+from app.notify_email import admin_email_plugin_active
 
 router = APIRouter()
 
@@ -41,6 +43,7 @@ class ConfigSaveIn(BaseModel):
     short_description: str = ""
     long_description: str = ""
     admin_emails: str = ""
+    admin_email_notifications: bool | None = None
 
 
 class ConfigRevertIn(BaseModel):
@@ -55,6 +58,15 @@ class BrandingResult(BaseModel):
 class LogoDisplayIn(BaseModel):
     width: int
     height: int
+
+
+class EmailNotificationsIn(BaseModel):
+    enabled: bool
+
+
+class EmailNotificationsOut(BaseModel):
+    enabled: bool
+    admin_email_plugin: bool
 
 
 def _validation_detail(exc: ValidationError) -> str:
@@ -84,12 +96,27 @@ def post_admin_config(body: ConfigSaveIn, _admin: AdminUser) -> ConfigState:
             short,
             long,
             admin_emails=body.admin_emails,
+            admin_email_notifications=body.admin_email_notifications,
         )
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail=_validation_detail(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return config_state(document, changed=True)
+
+
+@router.put("/api/admin/email-notifications")
+def put_email_notifications(
+    body: EmailNotificationsIn, _admin: AdminUser
+) -> EmailNotificationsOut:
+    plugin = admin_email_plugin_active()
+    if not plugin:
+        raise HTTPException(
+            status_code=400,
+            detail="Email notifications require an admin email plugin under plugins/",
+        )
+    enabled = apply_admin_email_notifications(body.enabled)
+    return EmailNotificationsOut(enabled=enabled, admin_email_plugin=True)
 
 
 @router.post("/api/admin/config/revert")
