@@ -1944,7 +1944,7 @@ wheels = [
 
 [[package]]
 name = "stationvoice"
-version = "0.28.9"
+version = "0.28.10"
 source = { editable = "." }
 dependencies = [
     { name = "apscheduler" },
