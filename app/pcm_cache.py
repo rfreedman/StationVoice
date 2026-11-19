@@ -29,6 +29,22 @@ def _lock_for(announcement_id: str) -> threading.Lock:
         return lock
 
 
+def _drop_lock(announcement_id: str) -> None:
+    with _locks_guard:
+        _ = _locks.pop(announcement_id, None)
+
+
+def touch_render_lock(announcement_id: str) -> None:
+    """Test helper: create the per-id render lock without synthesizing."""
+    _ = _lock_for(announcement_id)
+
+
+def has_render_lock(announcement_id: str) -> bool:
+    """Test helper: whether a render lock exists for ``announcement_id``."""
+    with _locks_guard:
+        return announcement_id in _locks
+
+
 def fingerprint(
     text: str,
     voice_id: str,
@@ -129,6 +145,7 @@ class PcmCache:
         folder = self._dir(announcement_id)
         if folder.exists():
             shutil.rmtree(folder)
+        _drop_lock(announcement_id)
 
     def prune(self, keep_ids: set[str]) -> None:
         if not self.root.exists():
@@ -136,6 +153,11 @@ class PcmCache:
         for folder in self.root.iterdir():
             if folder.is_dir() and folder.name not in keep_ids:
                 shutil.rmtree(folder)
+                _drop_lock(folder.name)
+        with _locks_guard:
+            stale = [aid for aid in _locks if aid not in keep_ids]
+            for aid in stale:
+                _ = _locks.pop(aid, None)
 
 
 def get_pcm_cache() -> PcmCache:

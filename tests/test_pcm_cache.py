@@ -11,7 +11,9 @@ from app.pcm_cache import (
     PcmCache,
     chunks_for_announcement,
     fingerprint,
+    has_render_lock,
     set_pcm_cache,
+    touch_render_lock,
     warm_all,
 )
 
@@ -51,12 +53,19 @@ def test_pcm_cache_drop_and_prune(tmp_path: Path) -> None:
     fp = fingerprint("a", "v", 1.0, 0.25, None)
     cache.write("keep", fp, [PcmChunk(pcm_int16=b"\x00\x00", sample_rate=22050)])
     cache.write("gone", fp, [PcmChunk(pcm_int16=b"\x00\x00", sample_rate=22050)])
+    touch_render_lock("keep")
+    touch_render_lock("gone")
     cache.drop("gone")
     assert not (tmp_path / "pcm" / "gone").exists()
+    assert not has_render_lock("gone")
+    assert has_render_lock("keep")
     cache.write("stale", fp, [PcmChunk(pcm_int16=b"\x00\x00", sample_rate=22050)])
+    touch_render_lock("stale")
     cache.prune({"keep"})
     assert (tmp_path / "pcm" / "keep").exists()
     assert not (tmp_path / "pcm" / "stale").exists()
+    assert not has_render_lock("stale")
+    assert has_render_lock("keep")
 
 
 def test_chunks_for_announcement_uses_disk_after_first_render(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

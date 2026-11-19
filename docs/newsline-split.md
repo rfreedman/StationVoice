@@ -14,7 +14,7 @@ Whisper locates words in time. The splice point itself is a quiet stretch in the
 | **PyTorch** (`torch`, `torchaudio`) | — | Runs that stable-ts Whisper model (CPU wheels) | — |
 | **faster-whisper** (`faster-whisper>=1.1.0`) | `faster_whisper` | Open transcription of short windows and exported slices | `base.en` for handoffs, `small.en` for QA |
 
-`faster-whisper` is the CTranslate2 build of Whisper. A process-wide cache in `app/newsline/engine/whisper_model.py` keeps one model instance per worker. One CTranslate2 model is not safe to transcribe on from several threads at once.
+`faster-whisper` is the CTranslate2 build of Whisper. A process-wide cache in `app/newsline/engine/whisper_model.py` keeps one model instance per worker while a split runs. One CTranslate2 model is not safe to transcribe on from several threads at once. When the pipeline finishes (success or failure), `clear_whisper_models()` drops those instances so the announcer process does not keep multi-GB Whisper weights loaded for the rest of the week.
 
 **rapidfuzz** is also on this path. It is fuzzy string matching: it compares Whisper’s words to phrases taken from the script (openers and sign-offs).
 

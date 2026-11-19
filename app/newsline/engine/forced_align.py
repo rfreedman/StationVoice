@@ -119,6 +119,8 @@ def align_script_words(
             log(f"  forced-align cache hit ({cache_path.name})")
             return words, spans
 
+    import gc
+
     import stable_whisper
 
     align = PhaseTimer(
@@ -126,72 +128,77 @@ def align_script_words(
     )
     text = "\n".join(" ".join(toks) for _, toks in blocks)
     model = cast(object, stable_whisper.load_model(model_name))
-    align_fn = cast(Callable[..., object], getattr(model, "align"))
-    result = align_fn(
-        str(audio),
-        text,
-        language="en",
-        original_split=True,
-        suppress_silence=True,
-        suppress_word_ts=True,
-        verbose=False,
-    )
-    _ = align.done()
-
-    result_segments = cast(
-        Sequence[object], cast(object, getattr(result, "segments", None)) or []
-    )
-    if len(result_segments) != len(blocks):
-        raise RuntimeError(
-            f"forced align segment count mismatch: got {len(result_segments)}, "
-            + f"expected {len(blocks)}"
+    try:
+        align_fn = cast(Callable[..., object], getattr(model, "align"))
+        result = align_fn(
+            str(audio),
+            text,
+            language="en",
+            original_split=True,
+            suppress_silence=True,
+            suppress_word_ts=True,
+            verbose=False,
         )
+        _ = align.done()
 
-    words: list[WordTiming] = []
-    spans: list[tuple[int, float, float, str]] = []
-    for (seg, _toks), rseg in zip(blocks, result_segments, strict=False):
-        rwords = list(cast(Sequence[object], getattr(rseg, "words", None) or []))
-        if not rwords:
+        result_segments = cast(
+            Sequence[object], cast(object, getattr(result, "segments", None)) or []
+        )
+        if len(result_segments) != len(blocks):
             raise RuntimeError(
-                f"forced align produced no words for segment {seg.index} ({seg.title})"
+                f"forced align segment count mismatch: got {len(result_segments)}, "
+                + f"expected {len(blocks)}"
             )
-        for w in rwords:
-            words.append(
-                WordTiming(
-                    word=str(getattr(w, "word", "")).strip(),
-                    start=float(cast(float | int, cast(object, getattr(w, "start")))),
-                    end=float(cast(float | int, cast(object, getattr(w, "end")))),
+
+        words: list[WordTiming] = []
+        spans: list[tuple[int, float, float, str]] = []
+        for (seg, _toks), rseg in zip(blocks, result_segments, strict=False):
+            rwords = list(cast(Sequence[object], getattr(rseg, "words", None) or []))
+            if not rwords:
+                raise RuntimeError(
+                    f"forced align produced no words for segment {seg.index} ({seg.title})"
+                )
+            for w in rwords:
+                words.append(
+                    WordTiming(
+                        word=str(getattr(w, "word", "")).strip(),
+                        start=float(cast(float | int, cast(object, getattr(w, "start")))),
+                        end=float(cast(float | int, cast(object, getattr(w, "end")))),
+                    )
+                )
+            first = rwords[0]
+            last = rwords[-1]
+            snippet = " ".join(str(getattr(w, "word", "")).strip() for w in rwords[:6])
+            spans.append(
+                (
+                    seg.index,
+                    float(cast(float | int, cast(object, getattr(first, "start")))),
+                    float(cast(float | int, cast(object, getattr(last, "end")))),
+                    snippet,
                 )
             )
-        first = rwords[0]
-        last = rwords[-1]
-        snippet = " ".join(str(getattr(w, "word", "")).strip() for w in rwords[:6])
-        spans.append(
-            (
-                seg.index,
-                float(cast(float | int, cast(object, getattr(first, "start")))),
-                float(cast(float | int, cast(object, getattr(last, "end")))),
-                snippet,
-            )
-        )
 
-    if cache_path is not None:
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "words": [{"word": w.word, "start": w.start, "end": w.end} for w in words],
-            "spans": [
-                {
-                    "segment_index": si,
-                    "start": st,
-                    "end": en,
-                    "snippet": sn,
-                }
-                for si, st, en, sn in spans
-            ],
-        }
-        _ = cache_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        if cache_path is not None:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            payload = {
+                "words": [{"word": w.word, "start": w.start, "end": w.end} for w in words],
+                "spans": [
+                    {
+                        "segment_index": si,
+                        "start": st,
+                        "end": en,
+                        "snippet": sn,
+                    }
+                    for si, st, en, sn in spans
+                ],
+            }
+            _ = cache_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
-    return words, spans
+        return words, spans
+    finally:
+        # stable-ts / torch models are not in the faster-whisper cache; drop refs explicitly.
+        del model
+        _ = gc.collect()
 
 
 def build_forced_boundaries(

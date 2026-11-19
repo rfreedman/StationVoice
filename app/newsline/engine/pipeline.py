@@ -132,77 +132,83 @@ def run_forced_align_pipeline(
     Returns ``(boundaries, words, critical_issues, qa_passes, qa_max_passes)``.
     """
     from app.newsline.engine.progress import PhaseTimer, log
+    from app.newsline.engine.whisper_model import clear_whisper_models
 
-    align = PhaseTimer(f"Forced-aligning script to {audio.name} (model={align_model})")
-    boundaries, words, energy_frames = align_segments_forced(
-        all_segments,
-        audio,
-        duration,
-        model_name=align_model,
-        cache_dir=cache_dir,
-    )
-    _ = align.done(f"{len(words)} words, {len(boundaries)} export segments")
-
-    issues = _qa_forced_boundaries(boundaries)
-    post_issues: list[ExportBoundaryIssue] = []
-    qa_remaining: list[ExportBoundaryIssue] = []
-    qa_passes = 0
-    qa_max_passes = MAX_QA_PASSES
-    mutable = list(boundaries)
-
-    if not dry_run:
-        export = PhaseTimer(f"Exporting MP3s (reencode={reencode})")
-        _ = slice_audio(
+    try:
+        align = PhaseTimer(f"Forced-aligning script to {audio.name} (model={align_model})")
+        boundaries, words, energy_frames = align_segments_forced(
+            all_segments,
             audio,
-            tuple(mutable),
-            output_dir,
-            report_id,
-            segments=all_segments,
-            words=None,
-            seg_by_index={s.index: s for s in all_segments},
-            reencode=reencode,
-            repeater_timeout=repeater_timeout,
-        )
-        _ = export.done(f"{len(mutable)} files → {output_dir.name}/")
-        post_issues = verify_post_export(
-            output_dir,
-            report_id,
-            tuple(mutable),
-            all_segments,
-            words=[],
-            repeater_timeout=repeater_timeout,
-        )
-        log("Starting export QA loop (slice ASR + energy + master handoffs) …")
-        mutable, qa_remaining, qa_passes = run_export_qa_loop(
-            audio=audio,
-            report_id=report_id,
-            boundaries=mutable,
-            segments=all_segments,
-            words=words,
-            output_dir=output_dir,
-            audio_duration=duration,
+            duration,
+            model_name=align_model,
             cache_dir=cache_dir,
-            reencode=reencode,
-            qa_model=qa_model,
-            energy_frames=energy_frames,
-            qa_workers=qa_workers,
-            repeater_timeout=repeater_timeout,
         )
-        # Duration check after final export
-        post_issues = verify_post_export(
-            output_dir,
-            report_id,
-            tuple(mutable),
-            all_segments,
-            words=[],
-            repeater_timeout=repeater_timeout,
-        )
+        _ = align.done(f"{len(words)} words, {len(boundaries)} export segments")
 
-    boundaries = tuple(mutable)
-    combined = _dedupe_issues(issues + post_issues + qa_remaining)
-    _print_issues(combined)
-    critical = [it for it in combined if is_critical(it, strict=strict)]
+        issues = _qa_forced_boundaries(boundaries)
+        post_issues: list[ExportBoundaryIssue] = []
+        qa_remaining: list[ExportBoundaryIssue] = []
+        qa_passes = 0
+        qa_max_passes = MAX_QA_PASSES
+        mutable = list(boundaries)
 
-    export_boundaries_json(output_dir / "boundaries.json", boundaries)
-    write_alignment_report(output_dir / "alignment_report.txt", boundaries)
-    return boundaries, words, critical, qa_passes, qa_max_passes
+        if not dry_run:
+            export = PhaseTimer(f"Exporting MP3s (reencode={reencode})")
+            _ = slice_audio(
+                audio,
+                tuple(mutable),
+                output_dir,
+                report_id,
+                segments=all_segments,
+                words=None,
+                seg_by_index={s.index: s for s in all_segments},
+                reencode=reencode,
+                repeater_timeout=repeater_timeout,
+            )
+            _ = export.done(f"{len(mutable)} files → {output_dir.name}/")
+            post_issues = verify_post_export(
+                output_dir,
+                report_id,
+                tuple(mutable),
+                all_segments,
+                words=[],
+                repeater_timeout=repeater_timeout,
+            )
+            log("Starting export QA loop (slice ASR + energy + master handoffs) …")
+            mutable, qa_remaining, qa_passes = run_export_qa_loop(
+                audio=audio,
+                report_id=report_id,
+                boundaries=mutable,
+                segments=all_segments,
+                words=words,
+                output_dir=output_dir,
+                audio_duration=duration,
+                cache_dir=cache_dir,
+                reencode=reencode,
+                qa_model=qa_model,
+                energy_frames=energy_frames,
+                qa_workers=qa_workers,
+                repeater_timeout=repeater_timeout,
+            )
+            # Duration check after final export
+            post_issues = verify_post_export(
+                output_dir,
+                report_id,
+                tuple(mutable),
+                all_segments,
+                words=[],
+                repeater_timeout=repeater_timeout,
+            )
+
+        boundaries = tuple(mutable)
+        combined = _dedupe_issues(issues + post_issues + qa_remaining)
+        _print_issues(combined)
+        critical = [it for it in combined if is_critical(it, strict=strict)]
+
+        export_boundaries_json(output_dir / "boundaries.json", boundaries)
+        write_alignment_report(output_dir / "alignment_report.txt", boundaries)
+        return boundaries, words, critical, qa_passes, qa_max_passes
+    finally:
+        # Drop faster-whisper instances loaded for handoff/QA; otherwise they
+        # stay resident until process restart (multi-GB on a 4-worker host).
+        _ = clear_whisper_models()
