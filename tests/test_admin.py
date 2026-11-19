@@ -253,7 +253,7 @@ def test_admin_email_notifications_toggle_and_survive_revert(
         encoding="utf-8",
     )
     os.environ["ADMIN_EMAILS"] = "ops@example.com"
-    os.environ.pop("ADMIN_EMAIL_NOTIFICATIONS", None)
+    _ = os.environ.pop("ADMIN_EMAIL_NOTIFICATIONS", None)
 
     state = _state(client)
     assert state.admin_email_plugin is True

@@ -76,7 +76,7 @@ def restore_operator_settings() -> Iterator[None]:
     if notifications_snapshot:
         os.environ["ADMIN_EMAIL_NOTIFICATIONS"] = notifications_snapshot
     else:
-        os.environ.pop("ADMIN_EMAIL_NOTIFICATIONS", None)
+        _ = os.environ.pop("ADMIN_EMAIL_NOTIFICATIONS", None)
     assign_live_settings(
         station_call=snapshot.station_call,
         station_name=snapshot.station_name,
