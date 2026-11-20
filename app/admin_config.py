@@ -166,6 +166,11 @@ class ConfigState(BaseModel):
     admin_email_plugin: bool = False
     # Operator mute for admin emails; .env.secrets only (default on when unset).
     admin_email_notifications: bool = False
+    # Radio backend from env vs live backend (may differ after DRA→stub fallback).
+    radio_backend_configured: str = "stub"
+    radio_mode_active: str = "stub"
+    radio_fallback_reason: str | None = None
+    systemd_unit: str = "dvra-announcements"
 
 
 def config_generation() -> int:
@@ -350,7 +355,10 @@ def revert_config(entry_id: str) -> tuple[ConfigHistoryFile, bool]:
 
 
 def config_state(document: ConfigHistoryFile, *, changed: bool) -> ConfigState:
+    from app.config import radio_backend, systemd_unit_name
     from app.notify_email import admin_email_plugin_active
+    from app.radio import active_radio_mode_label
+    from app.runtime import get_runtime
 
     current = _current_entry(document)
     plugin_active = admin_email_plugin_active()
@@ -380,6 +388,10 @@ def config_state(document: ConfigHistoryFile, *, changed: bool) -> ConfigState:
         admin_email_notifications=(
             read_admin_email_notifications() if plugin_active else False
         ),
+        radio_backend_configured=radio_backend() or "stub",
+        radio_mode_active=active_radio_mode_label(),
+        radio_fallback_reason=get_runtime().radio_fallback_reason,
+        systemd_unit=systemd_unit_name(),
     )
 
 

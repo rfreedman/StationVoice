@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from unittest.mock import MagicMock
 
 import pytest
 
 from app.radio import StubRadio, get_radio, set_radio
-from app.startup import StartupError, init_radio_at_startup
+from app.runtime import get_runtime
+from app.startup import DraHardwareMissingError, StartupError, init_radio_at_startup
 
 
 def test_init_radio_at_startup_stub_registers_stub_radio(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -14,6 +16,7 @@ def test_init_radio_at_startup_stub_registers_stub_radio(monkeypatch: pytest.Mon
     set_radio(None)
     init_radio_at_startup()
     assert isinstance(get_radio(), StubRadio)
+    assert get_runtime().radio_fallback_reason is None
 
 
 def _fail_startup_recorder(monkeypatch: pytest.MonkeyPatch):
@@ -65,8 +68,26 @@ def test_init_radio_at_startup_wraps_runtime_error(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr("app.config.radio_backend", lambda: "dra")
 
     def boom():
-        raise RuntimeError("No CM119A HID interface found.")
+        raise RuntimeError("TTS_DRA_HID_PATH did not match any CM119 HID path.")
 
     monkeypatch.setattr("app.radio.create_radio_from_config", boom)
-    with pytest.raises(StartupError, match="No CM119A HID"):
+    with pytest.raises(StartupError, match="TTS_DRA_HID_PATH"):
         init_radio_at_startup()
+
+
+def test_init_radio_dra_missing_falls_back_to_stub(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.radio_backend", lambda: "dra")
+    alert = MagicMock()
+    monkeypatch.setattr("app.notify_email.alert_admins", alert)
+
+    def boom():
+        raise DraHardwareMissingError("No CM119A HID interface found.")
+
+    monkeypatch.setattr("app.radio.create_radio_from_config", boom)
+    set_radio(None)
+    init_radio_at_startup()
+    assert isinstance(get_radio(), StubRadio)
+    assert get_runtime().radio_fallback_reason is not None
+    assert "No CM119A HID" in (get_runtime().radio_fallback_reason or "")
+    alert.assert_called_once()
+    assert alert.call_args.kwargs["key"] == "dra-startup-missing"

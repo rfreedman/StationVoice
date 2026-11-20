@@ -197,8 +197,12 @@ def resolve_dra_audio_indices(
 
     all_dra = list_dra_output_devices()
     if not all_dra:
-        raise RuntimeError(
-            "No DRA USB audio device found (look for C-Media / USB PnP Sound Device in PortAudio)"
+        from app.startup_errors import DraHardwareMissingError
+
+        raise DraHardwareMissingError(
+            "No DRA USB audio device found (look for C-Media / USB PnP Sound Device in PortAudio). "
+            + "Starting in stub mode until the adapter is attached; "
+            + "use Admin → Restart after plugging it in."
         )
 
     if not device_specs:

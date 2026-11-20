@@ -532,3 +532,79 @@ def test_default_icons_are_generic() -> None:
     assert gold[:3] == (255, 204, 0)
     icon = Image.open(STATIC_DIR / "favicon.ico")
     assert icon.format == "ICO"
+
+
+def test_admin_config_includes_radio_mode(client: TestClient) -> None:
+    state = _state(client)
+    assert state.radio_mode_active == "stub"
+    assert isinstance(state.radio_backend_configured, str)
+    assert state.systemd_unit == "dvra-announcements" or bool(state.systemd_unit)
+
+
+def test_admin_restart_is_admin_only(
+    store: AnnouncementStore, users: UserStore, readonly_client: TestClient
+) -> None:
+    _ = store
+    _ = users
+    assert readonly_client.post("/api/admin/restart").status_code == 403
+    with TestClient(app) as anon:
+        assert anon.post("/api/admin/restart").status_code == 401
+
+
+def test_admin_restart_schedules_helper(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app import process_restart
+
+    process_restart.reset_restart_schedule_for_tests()
+    scheduled: list[bool] = []
+
+    def _schedule() -> None:
+        scheduled.append(True)
+
+    monkeypatch.setattr("app.routes.admin.prepare_restart", lambda: None)
+    monkeypatch.setattr("app.routes.admin.schedule_systemd_restart", _schedule)
+    res = client.post("/api/admin/restart")
+    assert res.status_code == 202, res.text
+    body = json_dict(res)
+    assert body["ok"] is True
+    assert scheduled == [True]
+
+
+def test_admin_restart_busy_returns_409(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.process_restart import RestartBusyError
+
+    def _busy() -> None:
+        raise RestartBusyError("A transmission is in progress.")
+
+    monkeypatch.setattr("app.routes.admin.prepare_restart", _busy)
+    res = client.post("/api/admin/restart")
+    assert res.status_code == 409
+    assert "transmission" in json_dict(res)["detail"].lower()
+
+
+def test_admin_restart_unavailable_returns_503(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.process_restart import RestartUnavailableError
+
+    monkeypatch.setattr("app.routes.admin.prepare_restart", lambda: None)
+
+    def _unavailable() -> None:
+        raise RestartUnavailableError("systemctl is not available on this host.")
+
+    monkeypatch.setattr("app.routes.admin.schedule_systemd_restart", _unavailable)
+    res = client.post("/api/admin/restart")
+    assert res.status_code == 503
+    assert "systemctl" in json_dict(res)["detail"].lower()
+
+
+def test_ensure_restart_possible_requires_systemctl(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.process_restart import RestartUnavailableError, ensure_restart_possible
+
+    monkeypatch.setattr("app.process_restart.shutil.which", lambda _name: None)
+    with pytest.raises(RestartUnavailableError, match="systemctl"):
+        _ = ensure_restart_possible()
+

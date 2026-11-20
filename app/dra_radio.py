@@ -115,10 +115,12 @@ class DraRadio:
         hid = ensure_hid_module()
         entries = list_cm119_hid_entries(hid)
         if not entries:
-            raise RuntimeError(
-                "No CM119A HID interface found. Is the DRA-36M plugged in and accessible?"
-                + "\nIf attempting to test the system without the DRA-36M and radio, "
-                + 'change TTS_RADIO_BACKEND in the .env file to "stub" instead of "dra"'
+            from app.startup_errors import DraHardwareMissingError
+
+            raise DraHardwareMissingError(
+                "No CM119A HID interface found. Is the DRA-36M plugged in and accessible? "
+                + "Starting in stub mode until the adapter is attached; use Admin → Restart "
+                + "after plugging it in (or set TTS_RADIO_BACKEND=stub in .env for intentional stub)."
             )
         if DRA_HID_PATH_BYTES is not None:
             entries = [e for e in entries if e.get("path") == DRA_HID_PATH_BYTES]
@@ -204,6 +206,12 @@ class DraRadio:
                 return entries[:1]
             return []
         return entries
+
+    def transmit_session_active(self) -> bool:
+        """True while PTT is keyed or a USB lead/PCM session is in progress."""
+        if self.ptt_keyed:
+            return True
+        return self._usb.transmit_active() or self._usb.playback_in_progress()
 
     def begin_usb_transmit(self) -> None:
         """Covers USB lead silence + keyed PCM (``transmit()`` on DRA)."""

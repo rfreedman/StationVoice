@@ -3309,7 +3309,72 @@ async function refreshAdminConfig() {
   const longEl = document.getElementById("config-current-long");
   longEl.textContent = current.long_description || "";
   longEl.classList.toggle("hidden", !current.long_description);
+  fillRadioModePanel(payload);
   renderConfigHistory(payload);
+}
+
+function fillRadioModePanel(payload) {
+  const configured = payload.radio_backend_configured || "stub";
+  const active = payload.radio_mode_active || "stub";
+  const modeEl = document.getElementById("config-radio-mode");
+  if (configured === active) {
+    modeEl.textContent = `Radio mode: ${active}`;
+  } else {
+    modeEl.textContent = `Radio mode: ${active} (configured ${configured})`;
+  }
+  const fallbackEl = document.getElementById("config-radio-fallback");
+  const reason = payload.radio_fallback_reason || "";
+  fallbackEl.textContent = reason;
+  fallbackEl.classList.toggle("hidden", !reason);
+}
+
+async function restartApplication() {
+  setError("config-restart-error", "");
+  const statusEl = document.getElementById("config-restart-status");
+  statusEl.hidden = true;
+  const confirmed = window.confirm(
+    "Restart the application now?\n\n"
+      + "Busy-channel retries and failed-sign-in lockouts in memory will be cleared. "
+      + "Schedules and saved configuration stay on disk."
+  );
+  if (!confirmed) return;
+  const res = await fetch("/api/admin/restart", { method: "POST" });
+  let payload = {};
+  try {
+    payload = await res.json();
+  } catch {
+    /* ignore */
+  }
+  if (!res.ok) {
+    setError("config-restart-error", apiErrorMessage(payload, "Could not restart"));
+    return;
+  }
+  statusEl.textContent = "Restarting… this page will reload when the server is back.";
+  statusEl.hidden = false;
+  document.getElementById("config-restart").disabled = true;
+  const started = Date.now();
+  const poll = async () => {
+    if (Date.now() - started > 120000) {
+      setError("config-restart-error", "Restart is taking longer than expected. Check the server or reload manually.");
+      document.getElementById("config-restart").disabled = false;
+      return;
+    }
+    try {
+      const health = await fetch("/api/auth/status", { headers: { "X-Background-Poll": "1" } });
+      if (health.ok && Date.now() - started > 2500) {
+        window.location.reload();
+        return;
+      }
+    } catch {
+      /* still down */
+    }
+    window.setTimeout(() => {
+      poll().catch(() => {});
+    }, 1000);
+  };
+  window.setTimeout(() => {
+    poll().catch(() => {});
+  }, 1500);
 }
 
 async function setAdminEmailNotifications(enabled) {
@@ -4088,6 +4153,9 @@ document.getElementById("admin-tab-environment").addEventListener("click", () =>
 document.getElementById("admin-tab-branding").addEventListener("click", () => goToHash("#/admin/branding"));
 document.getElementById("config-save").addEventListener("click", () => {
   saveAdminConfig().catch((err) => window.alert(err.message));
+});
+document.getElementById("config-restart").addEventListener("click", () => {
+  restartApplication().catch((err) => window.alert(err.message));
 });
 document.getElementById("cfg-admin-email-notifications").addEventListener("change", (event) => {
   const toggle = /** @type {HTMLInputElement} */ (event.currentTarget);

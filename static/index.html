@@ -201,6 +201,19 @@
             </div>
           </section>
           <section class="panel">
+            <h2 class="subhead">Server</h2>
+            <p class="lede tight" id="config-radio-mode"></p>
+            <p class="lede tight hidden" id="config-radio-fallback"></p>
+            <p class="lede tight">
+              Restart reloads radio hardware from .env. In-progress busy retries and failed-sign-in lockouts are cleared; schedules and saved configuration are not.
+            </p>
+            <div class="actions">
+              <button type="button" class="primary" id="config-restart">Restart application</button>
+            </div>
+            <p id="config-restart-status" class="lede tight" hidden></p>
+            <p id="config-restart-error" class="status-error" hidden></p>
+          </section>
+          <section class="panel">
             <h2 class="subhead">Station</h2>
             <section class="voice-row">
               <label class="label" for="cfg-station-call">Call sign</label>

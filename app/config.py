@@ -141,6 +141,11 @@ def radio_backend() -> str:
     return os.environ.get("TTS_RADIO_BACKEND", "stub").strip().lower()
 
 
+def systemd_unit_name() -> str:
+    """Bare systemd unit name for Admin → Restart (no ``.service`` suffix)."""
+    return os.environ.get("TTS_SYSTEMD_UNIT", "dvra-announcements").strip() or "dvra-announcements"
+
+
 DRA_USB_CHANNEL = os.environ.get("TTS_DRA_USB_CHANNEL", "left").strip().lower()
 if DRA_USB_CHANNEL not in {"left", "right", "mono"}:
     import logging

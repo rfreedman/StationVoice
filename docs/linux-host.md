@@ -165,6 +165,7 @@ Dual transmit uses **two separate CM119A devices** (one per DRA-36M): two USB au
 ## App on the Linux host
 
 - Set **`TTS_RADIO_BACKEND=dra`** in `.env` for on-air scheduled playback (keep **`stub`** on macOS, where radios have not been tried).
-- After a clean start, check the log for **`Startup complete … (radio mode: dra)`** (console or `data/logs/announcements.log`). If you still see **`stub`**, the process registered the in-memory backend—fix `.env` and restart. If startup exits before that line, DRA init failed (HID, udev, or audio device).
+- After a clean start, check the log for **`Startup complete … (radio mode: dra)`** (console or `data/logs/announcements.log`). If no DRA is attached while `.env` asks for `dra`, the app **falls back to stub**, sends **one** admin alert, and stays up — use **Admin → Environment → Restart application** after plugging the adapter in. If you still see **`stub`** with adapters attached, check `.env` / HID / udev.
+- Other fatal startup errors (permissions, unmute, bad config, etc.) log, notify **once**, and exit; the systemd unit uses **`Restart=no`**, so it stays inactive until you `systemctl start` / deploy / Admin restart (when still up). There is no auto-restart loop.
 - Record rig-specific values in [`final-hardware/bench-record.md`](final-hardware/bench-record.md).
 - HTTPS / Tailscale / Caddy: see [`remote-access.md`](remote-access.md).

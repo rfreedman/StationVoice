@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ValidationError
 
 from app.admin_config import (
@@ -32,8 +33,15 @@ from app.branding import (
 )
 from app.deps import AdminUser
 from app.notify_email import admin_email_plugin_active
+from app.process_restart import (
+    RestartBusyError,
+    RestartUnavailableError,
+    prepare_restart,
+    schedule_systemd_restart,
+)
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 _CACHE = {"Cache-Control": "no-cache"}
 
@@ -67,6 +75,11 @@ class EmailNotificationsIn(BaseModel):
 class EmailNotificationsOut(BaseModel):
     enabled: bool
     admin_email_plugin: bool
+
+
+class RestartOut(BaseModel):
+    ok: bool
+    detail: str
 
 
 def _validation_detail(exc: ValidationError) -> str:
@@ -117,6 +130,20 @@ def put_email_notifications(
         )
     enabled = apply_admin_email_notifications(body.enabled)
     return EmailNotificationsOut(enabled=enabled, admin_email_plugin=True)
+
+
+@router.post("/api/admin/restart")
+def post_admin_restart(admin: AdminUser) -> JSONResponse:
+    try:
+        prepare_restart()
+        schedule_systemd_restart()
+    except RestartBusyError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except RestartUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    log.info("Admin %s requested application restart", admin.username)
+    body = RestartOut(ok=True, detail="Restart scheduled")
+    return JSONResponse(status_code=202, content=body.model_dump())
 
 
 @router.post("/api/admin/config/revert")

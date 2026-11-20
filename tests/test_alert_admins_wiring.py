@@ -67,7 +67,7 @@ def test_fail_startup_alerts_before_exit(monkeypatch: pytest.MonkeyPatch) -> Non
     startup.fail_startup("radio missing")
 
     alert.assert_called_once_with("Startup failed", "radio missing")
-    assert exit_calls == [1]
+    assert exit_calls == [0]
 
 
 def test_fail_startup_skips_alert_when_notifier_never_loaded(
@@ -94,7 +94,7 @@ def test_fail_startup_skips_alert_when_notifier_never_loaded(
         startup.fail_startup(msg)
 
     get.assert_not_called()
-    assert exit_calls == [1]
+    assert exit_calls == [0]
     assert "Could not alert admins" not in caplog.text
     assert caplog.text.count("cannot start") == 1
     assert "messagebird-sdk" in caplog.text

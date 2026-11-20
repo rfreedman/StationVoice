@@ -25,7 +25,9 @@ scripts-local/deploy other-host              # or DEPLOY_HOST=other-host; DEPLOY
 
 ### systemd start / stop
 
-`scripts-local/start-remote` and `scripts-local/stop-remote` call `sudo -n systemctl start|stop` with the bare unit name (`dvra-announcements`, no `.service` suffix). Deploy stops the unit, fast-forwards git, then starts the unit again. Startup success is `Startup complete` in the unit journal (not `data/logs/serve.out`).
+`scripts-local/start-remote` and `scripts-local/stop-remote` call `sudo -n systemctl start|stop` with the bare unit name (`dvra-announcements`, no `.service` suffix). Deploy stops the unit, fast-forwards git, then starts the unit again. Startup success is `Startup complete` in the unit journal (not `data/logs/serve.out`). Admin → Environment → **Restart application** uses the same passwordless `systemctl restart` rule.
+
+The unit uses **`Restart=no`**: handled startup failures and crashes leave the service inactive (no restart/email loop). After changing the unit file, refresh it on the host with `scripts-local/install-systemd-service` (or equivalent).
 
 Non-interactive SSH cannot enter a sudo password. On the Linux host, allow passwordless sudo **only** for this unit (as root / `tempadmin`):
 
