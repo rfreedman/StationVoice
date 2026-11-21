@@ -11,7 +11,7 @@ from pydantic import BaseModel, field_validator
 from app.config import NEWSLINE_DIR
 from app.json_io import write_json_atomic
 
-NewslinePhase = Literal["idle", "checking", "downloading", "splitting"]
+NewslinePhase = Literal["idle", "checking", "downloading", "awaiting_choice", "splitting"]
 NewslineOutcome = Literal["new", "current"]
 
 

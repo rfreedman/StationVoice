@@ -67,6 +67,10 @@ class NewslinePreviewIn(BaseModel):
     resume_announcement_id: str | None = None
 
 
+class NewslineCheckChoiceIn(BaseModel):
+    action: Literal["stop", "split_restart", "split_no_restart"]
+
+
 class PrepareRequest(BaseModel):
     voice: str | None = None
 

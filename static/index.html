@@ -297,6 +297,10 @@
               <label class="label" for="cfg-repeater-timeout">Repeater timeout (seconds)</label>
               <input id="cfg-repeater-timeout" type="number" min="30" max="600" step="1" value="180" />
             </section>
+            <label class="inline-check">
+              <input id="cfg-newsline-restart" type="checkbox" />
+              Restart the application after a scheduled Newsline split finishes
+            </label>
           </section>
 
             <section class="panel">
@@ -527,6 +531,14 @@
               <p class="lede tight" id="newsline-status">No report downloaded yet.</p>
               <div class="toolbar-actions">
                 <button type="button" class="ghost small" id="newsline-check">Check for Newsline now</button>
+              </div>
+            </div>
+            <div class="toolbar hidden" id="newsline-choice-bar">
+              <p class="lede tight">Report downloaded. Split now? No answer within 10 minutes stops without splitting.</p>
+              <div class="toolbar-actions">
+                <button type="button" class="ghost small" id="newsline-choice-stop">Stop</button>
+                <button type="button" class="ghost small" id="newsline-choice-restart">Continue and restart after</button>
+                <button type="button" class="ghost small" id="newsline-choice-no-restart">Continue without restart</button>
               </div>
             </div>
             <!-- Placeholder. refreshHome() replaces this text with newslineScheduleText(settings). -->

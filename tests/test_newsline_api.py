@@ -168,6 +168,7 @@ def test_manual_check_runs_outside_the_window_without_the_network(monkeypatch: p
     monkeypatch.setattr("app.newsline.poll.latest_report", latest_report)
     monkeypatch.setattr("app.newsline.poll.download_file", download)
     monkeypatch.setattr("app.newsline.poll.split_report", split)
+    _auto_manual_choice(monkeypatch)
     state = run_check(manual=True, root=tmp_path)
     assert calls == {"feed": 1, "download": 2, "split": 1}
     assert state.split_ok
@@ -228,6 +229,7 @@ def test_check_reports_download_and_processing_then_an_unchanged_report(monkeypa
     monkeypatch.setattr("app.newsline.poll.latest_report", latest_report)
     monkeypatch.setattr("app.newsline.poll.download_file", download)
     monkeypatch.setattr("app.newsline.poll.split_report", split)
+    _auto_manual_choice(monkeypatch)
     def check_in_progress() -> bool:
         return True
 
@@ -549,6 +551,27 @@ def _script_for(number: int, friday: str) -> str:
     return f"Amateur Radio Newsline Report {number} for Friday, {friday}\n"
 
 
+def _auto_manual_choice(
+    monkeypatch: pytest.MonkeyPatch,
+    action: str = "split_no_restart",
+) -> None:
+    from app.newsline.poll import ManualSplitChoice
+
+    choice: ManualSplitChoice
+    if action == "stop":
+        choice = "stop"
+    elif action == "split_restart":
+        choice = "split_restart"
+    else:
+        choice = "split_no_restart"
+
+    def choose(*, timeout_seconds: float | None = None) -> ManualSplitChoice:
+        _ = timeout_seconds
+        return choice
+
+    monkeypatch.setattr("app.newsline.poll._await_manual_split_choice", choose)
+
+
 def _stub_feed(
     monkeypatch: pytest.MonkeyPatch,
     number: int,
@@ -653,6 +676,7 @@ def test_manual_check_redownloads_after_a_failed_split(monkeypatch: pytest.Monke
         _ = _plant_cache(tmp_path, 2557)
 
     _stub_feed(monkeypatch, 2557, download=download, split=split)
+    _auto_manual_choice(monkeypatch)
     state = run_check(manual=True, root=tmp_path)
     assert calls == {"download": 2, "split": 1}
     assert state.split_ok
@@ -709,6 +733,7 @@ def test_successful_split_clears_that_report_cache(monkeypatch: pytest.MonkeyPat
         _ = _plant_cache(tmp_path, 2557)
 
     _stub_feed(monkeypatch, 2557, download=download, split=split)
+    _auto_manual_choice(monkeypatch)
     state = run_check(manual=True, root=tmp_path)
     assert state.split_ok
     assert state.report_number == 2557

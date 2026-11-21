@@ -7,7 +7,7 @@ import shutil
 import threading
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
 from zoneinfo import ZoneInfo
 
 from apscheduler.triggers.date import DateTrigger
@@ -30,13 +30,25 @@ from app.store import get_store
 log = logging.getLogger("app.newsline")
 
 JOB_ID = "newsline-poll"
+NEWSLINE_MANUAL_CHOICE_TIMEOUT_SECONDS = 600
+ManualSplitChoice = Literal["stop", "split_restart", "split_no_restart"]
+
 _guard = threading.Lock()
 _in_progress = False
+_choice_lock = threading.Lock()
+_choice_event = threading.Event()
+_choice_result: ManualSplitChoice | None = None
+_awaiting_choice = False
 
 
 def check_in_progress() -> bool:
     with _guard:
         return _in_progress
+
+
+def awaiting_manual_choice() -> bool:
+    with _choice_lock:
+        return _awaiting_choice
 
 
 def log_ffmpeg_status() -> None:
@@ -142,6 +154,71 @@ def _settings_now() -> tuple[datetime, str, str, int, ZoneInfo, int]:
     )
 
 
+def submit_manual_split_choice(action: ManualSplitChoice) -> bool:
+    """Record the admin's post-download choice. False when not awaiting."""
+    global _choice_result
+    with _choice_lock:
+        if not _awaiting_choice:
+            return False
+        _choice_result = action
+        _choice_event.set()
+        return True
+
+
+def _begin_await_choice() -> None:
+    global _awaiting_choice, _choice_result
+    with _choice_lock:
+        _awaiting_choice = True
+        _choice_result = None
+        _choice_event.clear()
+
+
+def _end_await_choice() -> None:
+    global _awaiting_choice
+    with _choice_lock:
+        _awaiting_choice = False
+
+
+def _await_manual_split_choice(*, timeout_seconds: float | None = None) -> ManualSplitChoice:
+    """Block until the admin chooses, or time out as Stop."""
+    wait_for = (
+        NEWSLINE_MANUAL_CHOICE_TIMEOUT_SECONDS
+        if timeout_seconds is None
+        else timeout_seconds
+    )
+    _begin_await_choice()
+    try:
+        if not _choice_event.wait(wait_for):
+            log.info(
+                "Manual Newsline split choice timed out after %s seconds; stopping",
+                wait_for,
+            )
+            return "stop"
+        with _choice_lock:
+            result = _choice_result
+        if result is None:
+            return "stop"
+        log.info("Manual Newsline split choice: %s", result)
+        return result
+    finally:
+        _end_await_choice()
+
+
+def begin_manual_choice_for_tests() -> None:
+    """Test helper: mark the poller as awaiting a split choice."""
+    _begin_await_choice()
+
+
+def reset_manual_choice_for_tests() -> None:
+    """Test helper: clear any pending manual split choice wait."""
+    global _choice_result, _awaiting_choice
+    with _choice_lock:
+        _awaiting_choice = False
+        _choice_result = None
+        _choice_event.set()
+        _choice_event.clear()
+
+
 def run_check(*, manual: bool, root: Path | None = None) -> NewsState:
     """Fetch, download, and split when a newer report is available."""
     now, start_hhmm, stop_hhmm, timeout, _zone, _interval = _settings_now()
@@ -154,6 +231,8 @@ def run_check(*, manual: bool, root: Path | None = None) -> NewsState:
     begin_ui_progress("Checking the Newsline feed")
     downloaded = False
     number: int | None = None
+    split_started = False
+    want_restart = False
     try:
         if not ffmpeg_available():
             raise OSError("ffmpeg and ffprobe are required")
@@ -229,9 +308,24 @@ def run_check(*, manual: bool, root: Path | None = None) -> NewsState:
         else:
             log.info("Newsline script already on disk: %s", transcript)
         downloaded = True
+        if manual:
+            state.phase = "awaiting_choice"
+            set_ui_step("Waiting for your choice")
+            _store(state, root)
+            choice = _await_manual_split_choice()
+            if choice == "stop":
+                log.info("Manual Newsline check stopped before split (report %s)", number)
+                state.error = None
+                return state
+            want_restart = choice == "split_restart"
+        else:
+            from app.config import NEWSLINE_RESTART_AFTER_PROCESS
+
+            want_restart = NEWSLINE_RESTART_AFTER_PROCESS
         state.phase = "splitting"
         set_ui_step("Processing")
         _store(state, root)
+        split_started = True
         try:
             split_report(
                 audio=audio,
@@ -293,6 +387,10 @@ def run_check(*, manual: bool, root: Path | None = None) -> NewsState:
         state.working_report = None
         state.last_check_at = _settings_now()[0]
         _store(state, root)
+        if split_started:
+            from app.process_restart import maybe_restart_after_newsline_processing
+
+            maybe_restart_after_newsline_processing(want_restart=want_restart)
     return state
 
 
@@ -386,13 +484,17 @@ def status_payload() -> NewslineStatus:
     from app.newsline.session import bulletin_session
 
     progress = ui_snapshot()
+    phase = state.phase
+    # Stale awaiting_choice after a crash/restart should not block the UI forever.
+    if phase == "awaiting_choice" and not check_in_progress():
+        phase = "idle"
     return {
         "report_number": state.report_number,
         "release_friday": state.release_friday.isoformat() if state.release_friday else None,
         "published_on": published_on_text(state.published_on),
         "split_ok": state.split_ok,
         "ready": ready,
-        "phase": state.phase,
+        "phase": phase,
         "error": state.error,
         "completed_at": state.completed_at.isoformat() if state.completed_at else None,
         "last_check_at": state.last_check_at.isoformat() if state.last_check_at else None,

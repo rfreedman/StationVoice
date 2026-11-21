@@ -51,5 +51,6 @@ Add a one-line lesson here only when a fix reveals a pattern that would be easy 
 
 ## Tests
 - Run the full suite (`pytest`) before finishing; it must pass with and without a `.env`.
+- Also run **`uv run basedpyright`** before finishing; it must pass with 0 errors and 0 warnings (see `basedpyright-before-finish`).
 - New behavior fix ⇒ a regression test that fails on the old code.
 - Server startup replaces the radio; tests rely on the `keep_test_radio` autouse fixture.

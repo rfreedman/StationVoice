@@ -101,6 +101,7 @@ def restore_operator_settings() -> Iterator[None]:
         news_check_stop=snapshot.news_check_stop,
         news_check_interval_hours=snapshot.news_check_interval_hours,
         repeater_timeout_seconds=snapshot.repeater_timeout_seconds,
+        newsline_restart_after_process=snapshot.newsline_restart_after_process,
     )
     login_limiter.max_failures = snapshot.login_max_failures
     login_limiter.window_seconds = snapshot.login_window_seconds

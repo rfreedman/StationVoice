@@ -1551,7 +1551,12 @@ function renderSchedules(rows) {
 function newslineCheckActive(newsline) {
   if (!newsline) return false;
   if (newsline.in_progress) return true;
-  return newsline.phase === "checking" || newsline.phase === "downloading" || newsline.phase === "splitting";
+  return (
+    newsline.phase === "checking" ||
+    newsline.phase === "downloading" ||
+    newsline.phase === "awaiting_choice" ||
+    newsline.phase === "splitting"
+  );
 }
 
 function syncNewslineCheckButton() {
@@ -1568,6 +1573,21 @@ function syncNewslineCheckButton() {
     button.title = "A Newsline check is already running";
   } else {
     button.title = "";
+  }
+}
+
+function syncNewslineChoiceBar(newsline) {
+  const bar = document.getElementById("newsline-choice-bar");
+  if (!bar) return;
+  const awaiting = Boolean(newsline && newsline.phase === "awaiting_choice" && newsline.in_progress);
+  bar.classList.toggle("hidden", readOnly || !awaiting);
+  for (const id of [
+    "newsline-choice-stop",
+    "newsline-choice-restart",
+    "newsline-choice-no-restart",
+  ]) {
+    const button = document.getElementById(id);
+    if (button) button.disabled = readOnly || !awaiting;
   }
 }
 
@@ -1643,6 +1663,7 @@ function renderNewsline(newsline) {
   }
   syncNewslinePoll(newsline);
   syncNewslineCheckButton();
+  syncNewslineChoiceBar(newsline);
   if (!newsline) {
     status.textContent = "No report downloaded yet.";
     return;
@@ -1653,6 +1674,13 @@ function renderNewsline(newsline) {
     const head = working
       ? `Downloading Newsline report ${working}…`
       : "Downloading the Newsline report…";
+    status.textContent = `${head}${elapsed}`;
+    return;
+  }
+  if (newsline.phase === "awaiting_choice") {
+    const head = working
+      ? `Report ${working} downloaded. Choose whether to split.`
+      : "Report downloaded. Choose whether to split.";
     status.textContent = `${head}${elapsed}`;
     return;
   }
@@ -3224,6 +3252,7 @@ function readConfigForm() {
     news_check_stop: hhmmField("cfg-news-stop"),
     news_check_interval_hours: Number(document.getElementById("cfg-news-interval").value),
     repeater_timeout_seconds: Number(document.getElementById("cfg-repeater-timeout").value),
+    newsline_restart_after_process: document.getElementById("cfg-newsline-restart").checked,
   };
 }
 
@@ -3250,6 +3279,9 @@ function fillConfigForm(values) {
   document.getElementById("cfg-news-stop").value = values.news_check_stop || "18:00";
   document.getElementById("cfg-news-interval").value = String(values.news_check_interval_hours ?? 1);
   document.getElementById("cfg-repeater-timeout").value = String(values.repeater_timeout_seconds ?? 180);
+  document.getElementById("cfg-newsline-restart").checked = Boolean(
+    values.newsline_restart_after_process,
+  );
 }
 
 async function fillVoiceOptions(selected) {
@@ -4353,6 +4385,59 @@ document.getElementById("newsline-check").addEventListener("click", async () => 
     return;
   }
   await refreshHome();
+});
+
+async function submitNewslineSplitChoice(action) {
+  const status = document.getElementById("newsline-status");
+  for (const id of [
+    "newsline-choice-stop",
+    "newsline-choice-restart",
+    "newsline-choice-no-restart",
+  ]) {
+    const button = document.getElementById(id);
+    if (button) button.disabled = true;
+  }
+  const res = await fetch("/api/newsline/check/choice", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action }),
+  });
+  if (res.status === 409) {
+    let detail = "No Newsline check is waiting for a split choice.";
+    try {
+      const body = await res.json();
+      if (typeof body.detail === "string" && body.detail) detail = body.detail;
+    } catch {
+      /* ignore */
+    }
+    if (status) status.textContent = detail;
+    await refreshHome({ background: true }).catch(() => {});
+    return;
+  }
+  if (!res.ok) {
+    if (status) status.textContent = "Could not submit the Newsline split choice.";
+    await refreshHome({ background: true }).catch(() => {});
+    return;
+  }
+  if (status) {
+    if (action === "stop") status.textContent = "Stopped before splitting.";
+    else if (action === "split_restart") {
+      status.textContent = "Processing… will restart after.";
+    } else {
+      status.textContent = "Processing…";
+    }
+  }
+  await refreshHome();
+}
+
+document.getElementById("newsline-choice-stop")?.addEventListener("click", () => {
+  submitNewslineSplitChoice("stop").catch(() => {});
+});
+document.getElementById("newsline-choice-restart")?.addEventListener("click", () => {
+  submitNewslineSplitChoice("split_restart").catch(() => {});
+});
+document.getElementById("newsline-choice-no-restart")?.addEventListener("click", () => {
+  submitNewslineSplitChoice("split_no_restart").catch(() => {});
 });
 
 document.getElementById("skip-notice-dismiss").addEventListener("click", async () => {

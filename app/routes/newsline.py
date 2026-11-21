@@ -15,10 +15,10 @@ from fastapi.responses import StreamingResponse
 from app.deps import AdminUser, AuthUser
 from app.live_notify import notify_home_data_changed, notify_home_live_status
 from app.newsline.notices import clear_skip_notice
-from app.newsline.poll import start_manual_check
+from app.newsline.poll import start_manual_check, submit_manual_split_choice
 from app.newsline.preview import PreviewError, preview_frames
 from app.routes.speak import raise_engine_http
-from app.schemas import NewslinePreviewIn
+from app.schemas import NewslineCheckChoiceIn, NewslinePreviewIn
 
 router = APIRouter()
 log = logging.getLogger("app.routes.newsline")
@@ -37,6 +37,17 @@ def check_newsline_now(_admin: AdminUser) -> dict[str, str]:
         raise HTTPException(status_code=409, detail="A Newsline check is already running")
     notify_home_data_changed()
     return {"result": "started"}
+
+
+@router.post("/api/newsline/check/choice")
+def newsline_check_choice(body: NewslineCheckChoiceIn, _admin: AdminUser) -> dict[str, str]:
+    if not submit_manual_split_choice(body.action):
+        raise HTTPException(
+            status_code=409,
+            detail="No Newsline check is waiting for a split choice",
+        )
+    notify_home_data_changed()
+    return {"result": body.action}
 
 
 @router.post("/api/skip-notice/dismiss")

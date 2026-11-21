@@ -6,6 +6,12 @@ Whisper locates words in time. The splice point itself is a quiet stretch in the
 
 `split_report` in `app/newsline/split_job.py` always runs the forced-align pipeline with `align_model="base.en"` and `qa_model="small.en"`.
 
+## Restart after processing
+
+If memory pressure after a split is a concern, set `TTS_NEWSLINE_RESTART_AFTER_PROCESS=true` (Admin → Environment → Newsline checkbox). When a **scheduled** check downloads a new report and enters `split_report`, the process schedules a systemd restart after that check ends — whether the split succeeds or fails. If a transmission is in progress (COS busy / PTT keyed), restart is skipped and admins get an alert.
+
+**Check for Newsline now** always pauses after a successful download and before split. The admin chooses Stop (no split), continue with restart after, or continue without restart. If nobody answers within 10 minutes, the check stops without splitting. That choice overrides the env toggle for that run.
+
 ## Libraries
 
 | Package | Import | Role | Model |

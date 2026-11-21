@@ -118,6 +118,46 @@ def _run_restart_after_delay() -> None:
         log.exception("Unexpected error during scheduled systemd restart")
 
 
+def maybe_restart_after_newsline_processing(*, want_restart: bool) -> None:
+    """Restart after Newsline split when requested, unless transmit is busy."""
+    if not want_restart:
+        return
+    if transmit_blocks_restart():
+        log.warning("Newsline restart skipped: transmission in progress")
+        from app.notify_email import alert_admins
+
+        alert_admins(
+            "Newsline restart skipped",
+            "Newsline processing finished, but the application was not restarted "
+            + "because a transmission is in progress (COS busy).",
+            key="newsline-restart-skipped",
+        )
+        return
+    try:
+        prepare_restart()
+        schedule_systemd_restart()
+        log.info("Scheduled application restart after Newsline processing")
+    except RestartBusyError:
+        log.warning("Newsline restart skipped: transmission became busy")
+        from app.notify_email import alert_admins
+
+        alert_admins(
+            "Newsline restart skipped",
+            "Newsline processing finished, but the application was not restarted "
+            + "because a transmission is in progress (COS busy).",
+            key="newsline-restart-skipped",
+        )
+    except RestartUnavailableError as exc:
+        log.exception("Newsline restart could not be scheduled")
+        from app.notify_email import alert_admins
+
+        alert_admins(
+            "Newsline restart failed",
+            f"Newsline processing finished, but the application restart failed: {exc}",
+            key="newsline-restart-failed",
+        )
+
+
 def reset_restart_schedule_for_tests() -> None:
     """Test helper: allow another scheduled restart in this process."""
     global _restart_scheduled

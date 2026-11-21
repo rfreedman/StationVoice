@@ -73,6 +73,7 @@ def test_idle_status_includes_distribution_date_and_last_check() -> None:
     first_facts = render.index("newslineFacts(")
     for marker in (
         "Downloading Newsline report",
+        "Choose whether to split",
         "Processing Newsline report",
         "Checking for a new Newsline report",
     ):

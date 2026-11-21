@@ -1,0 +1,14 @@
+---
+description: Run basedpyright and require a clean result before finishing code changes
+alwaysApply: true
+---
+
+# basedpyright before finish
+
+When finishing implementation work that touches `app/` or `tests/` (or anything covered by `[tool.basedpyright]`):
+
+1. Run **`uv run basedpyright`** (not `basepyright` / bare `pyright`).
+2. It must exit **0** with **0 errors and 0 warnings**. Warnings fail CI the same as errors.
+3. Fix the types (or a scoped `# pyright: ignore[rule]` only at a real FFI edge). Do **not** add a baseline file or weaken `[tool.basedpyright]` to silence diagnostics.
+
+Do this in the same turn as the final `pytest` pass before telling the user the work is done.

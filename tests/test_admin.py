@@ -582,7 +582,7 @@ def test_admin_restart_busy_returns_409(
     monkeypatch.setattr("app.routes.admin.prepare_restart", _busy)
     res = client.post("/api/admin/restart")
     assert res.status_code == 409
-    assert "transmission" in json_dict(res)["detail"].lower()
+    assert "transmission" in str(json_dict(res)["detail"]).lower()
 
 
 def test_admin_restart_unavailable_returns_503(
@@ -598,13 +598,16 @@ def test_admin_restart_unavailable_returns_503(
     monkeypatch.setattr("app.routes.admin.schedule_systemd_restart", _unavailable)
     res = client.post("/api/admin/restart")
     assert res.status_code == 503
-    assert "systemctl" in json_dict(res)["detail"].lower()
+    assert "systemctl" in str(json_dict(res)["detail"]).lower()
 
 
 def test_ensure_restart_possible_requires_systemctl(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.process_restart import RestartUnavailableError, ensure_restart_possible
 
-    monkeypatch.setattr("app.process_restart.shutil.which", lambda _name: None)
+    def no_systemctl(_name: str) -> str | None:
+        return None
+
+    monkeypatch.setattr("app.process_restart.shutil.which", no_systemctl)
     with pytest.raises(RestartUnavailableError, match="systemctl"):
         _ = ensure_restart_possible()
 

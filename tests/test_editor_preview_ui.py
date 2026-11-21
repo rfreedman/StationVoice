@@ -230,6 +230,11 @@ def test_newsline_check_button_disables_while_processing_or_playing() -> None:
     assert "Unavailable while Newsline is on the air" in source
     assert "A Newsline check is already running" in source
     assert "newslinePlaying || Boolean(lastNewsline?.playing)" in source
+    assert 'newsline.phase === "awaiting_choice"' in source
+    assert "function syncNewslineChoiceBar(newsline)" in source
+    assert 'submitNewslineSplitChoice("stop")' in source
+    assert 'submitNewslineSplitChoice("split_restart")' in source
+    assert 'submitNewslineSplitChoice("split_no_restart")' in source
     click = source.split('getElementById("newsline-check").addEventListener("click"', 1)[1]
     assert "if (button?.disabled) return;" in click.split("});", 1)[0]
 

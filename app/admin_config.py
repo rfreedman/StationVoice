@@ -67,6 +67,7 @@ class RuntimeConfigValues(BaseModel):
     news_check_stop: str = "18:00"
     news_check_interval_hours: float = 1.0
     repeater_timeout_seconds: int = 180
+    newsline_restart_after_process: bool = False
 
     @model_validator(mode="after")
     def bounds(self) -> RuntimeConfigValues:
@@ -294,6 +295,7 @@ def current_values() -> RuntimeConfigValues:
         news_check_stop=config.NEWS_CHECK_STOP,
         news_check_interval_hours=config.NEWS_CHECK_INTERVAL_HOURS,
         repeater_timeout_seconds=config.REPEATER_TIMEOUT_SECONDS,
+        newsline_restart_after_process=config.NEWSLINE_RESTART_AFTER_PROCESS,
     )
 
 
@@ -436,6 +438,7 @@ def _apply(values: RuntimeConfigValues) -> None:
         news_check_stop=values.news_check_stop,
         news_check_interval_hours=values.news_check_interval_hours,
         repeater_timeout_seconds=values.repeater_timeout_seconds,
+        newsline_restart_after_process=values.newsline_restart_after_process,
     )
     update_dotenv(dotenv_path(), editable_env_updates())
     _sync_runtime(values)

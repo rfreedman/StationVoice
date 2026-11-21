@@ -44,6 +44,7 @@
 | `ARNEWSLINE_EXPORT_WORKERS` | `4` | Parallel ffmpeg story exports during a split. Set `1` to encode one file at a time |
 | `ARNEWSLINE_CPU_THREADS` | *(all cores)* | Cap PyTorch / CTranslate2 / OpenMP threads used by a split. Example: `2` on a small NUC that runs hot |
 | `TTS_REPEATER_TIMEOUT_SECONDS` | `180` | Repeater time limit for one transmission (`30`–`600`). Spoken audio and Newsline story files must finish 2 seconds sooner |
+| `TTS_NEWSLINE_RESTART_AFTER_PROCESS` | `false` | After a **scheduled** Newsline check starts splitting a new report, restart the systemd unit when the check finishes (success or failure). Skipped with an admin alert if a transmission is in progress. Manual **Check for Newsline now** asks after download (Stop / continue with restart / continue without); unanswered choices time out after 10 minutes as Stop |
 | `TTS_SLOT_HALF_WINDOW_MINUTES` | `10` | How far an overlay may shift from its slot center |
 | `TTS_TRIGGER_NOW` | `false` | Dev only: show **Trigger now** on schedule rows (does not change Last or the next slot) |
 

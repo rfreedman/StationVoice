@@ -316,6 +316,7 @@ DEFAULT_SLOT_HALF_WINDOW_MINUTES = int(os.environ.get("TTS_SLOT_HALF_WINDOW_MINU
 LOOKAHEAD_HOURS = int(os.environ.get("TTS_SLOT_LOOKAHEAD_HOURS", "72"))
 TRIGGER_NOW = _env_flag("TTS_TRIGGER_NOW", False)
 FIRE_VERBOSE_LOG = _env_flag("TTS_FIRE_VERBOSE_LOG", False)
+NEWSLINE_RESTART_AFTER_PROCESS = _env_flag("TTS_NEWSLINE_RESTART_AFTER_PROCESS", False)
 SESSION_IDLE_SECONDS = int(os.environ.get("TTS_SESSION_IDLE_SECONDS", str(30 * 60)))
 
 # Station identity for UI / FastAPI title / idle assertion (call and name are required).
@@ -381,6 +382,7 @@ def assign_live_settings(
     news_check_stop: str,
     news_check_interval_hours: float,
     repeater_timeout_seconds: int,
+    newsline_restart_after_process: bool,
 ) -> None:
     """Publish operator settings for the rest of this process.
 
@@ -414,6 +416,7 @@ def assign_live_settings(
         "NEWS_CHECK_STOP": news_check_stop,
         "NEWS_CHECK_INTERVAL_HOURS": news_check_interval_hours,
         "REPEATER_TIMEOUT_SECONDS": repeater_timeout_seconds,
+        "NEWSLINE_RESTART_AFTER_PROCESS": newsline_restart_after_process,
     }
     module = globals()
     for name, value in published.items():
@@ -442,6 +445,9 @@ def assign_live_settings(
     os.environ["TTS_NEWS_CHECK_STOP"] = news_check_stop
     os.environ["TTS_NEWS_CHECK_INTERVAL_HOURS"] = _env_number(news_check_interval_hours)
     os.environ["TTS_REPEATER_TIMEOUT_SECONDS"] = str(repeater_timeout_seconds)
+    os.environ["TTS_NEWSLINE_RESTART_AFTER_PROCESS"] = (
+        "true" if newsline_restart_after_process else "false"
+    )
 
 
 def _env_number(value: float) -> str:
@@ -474,6 +480,9 @@ def editable_env_updates() -> dict[str, str]:
         "TTS_NEWS_CHECK_STOP": NEWS_CHECK_STOP,
         "TTS_NEWS_CHECK_INTERVAL_HOURS": _env_number(NEWS_CHECK_INTERVAL_HOURS),
         "TTS_REPEATER_TIMEOUT_SECONDS": str(REPEATER_TIMEOUT_SECONDS),
+        "TTS_NEWSLINE_RESTART_AFTER_PROCESS": (
+            "true" if NEWSLINE_RESTART_AFTER_PROCESS else "false"
+        ),
     }
 
 
