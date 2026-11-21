@@ -1044,10 +1044,22 @@ button.small {
   margin-bottom: 0;
 }
 
+.library-filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .library-filter select {
   width: auto;
   min-width: 14rem;
   padding: 8px 12px;
+}
+
+.library-filter-count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .clock-weekday {

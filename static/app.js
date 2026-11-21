@@ -1080,12 +1080,22 @@ function newslinesUsingAnnouncement(announcementId) {
   );
 }
 
+/**
+ * Direct schedules plus schedules on any newsline that includes this id
+ * (opening, station ID, closing, or resume — all four equally).
+ * @returns {Array.<ScheduleRow>}
+ */
+function schedulesAffectingAnnouncement(announcementId) {
+  const rows = schedulesUsingAnnouncement(announcementId);
+  for (const news of newslinesUsingAnnouncement(announcementId)) {
+    rows.push(...schedulesUsingAnnouncement(news.id));
+  }
+  return rows;
+}
+
 /** True if scheduled directly, or included in a scheduled newsline announcement. */
 function announcementIsScheduled(announcementId) {
-  if (schedulesUsingAnnouncement(announcementId).length > 0) return true;
-  return newslinesUsingAnnouncement(announcementId).some(
-    (item) => schedulesUsingAnnouncement(item.id).length > 0,
-  );
+  return schedulesAffectingAnnouncement(announcementId).length > 0;
 }
 
 /** @param {AnnouncementItem} a @param {AnnouncementItem} b */
@@ -1100,9 +1110,9 @@ function filteredLibraryAnnouncements() {
   const filterEl = document.getElementById("library-filter");
   const filter = filterEl ? filterEl.value : "all";
   const matched = announcements.filter((item) => {
-    const used = schedulesUsingAnnouncement(item.id);
-    if (filter === "scheduled") return announcementIsScheduled(item.id);
-    if (filter === "unscheduled") return !announcementIsScheduled(item.id);
+    const used = schedulesAffectingAnnouncement(item.id);
+    if (filter === "scheduled") return used.length > 0;
+    if (filter === "unscheduled") return used.length === 0;
     if (filter === "baseline") return used.some((row) => row.kind === "baseline");
     if (filter === "non-baseline") return used.some((row) => row.kind !== "baseline");
     return true;
@@ -1887,8 +1897,13 @@ async function deleteAnnouncement(item) {
 function renderLibrary(items) {
   const body = document.getElementById("library-rows");
   const empty = document.getElementById("library-empty");
+  const countEl = document.getElementById("library-filter-count");
   body.replaceChildren();
   empty.classList.toggle("hidden", items.length > 0);
+  if (countEl) {
+    const n = items.length;
+    countEl.textContent = n === 1 ? "1 announcement" : `${n} announcements`;
+  }
   if (items.length === 0) {
     empty.textContent =
       announcements.length === 0

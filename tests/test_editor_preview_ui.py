@@ -126,6 +126,7 @@ def test_library_filter_is_single_choice_sorted_by_name() -> None:
     html = (APP_JS.parent / "index.html").read_text(encoding="utf-8")
     library_panel = html.split("Announcement library", 1)[1].split('id="view-help"', 1)[0]
     assert 'id="library-filter"' in library_panel
+    assert 'id="library-filter-count"' in library_panel
     assert 'value="all" selected>All</option>' in library_panel
     assert 'value="scheduled">Scheduled</option>' in library_panel
     assert 'value="unscheduled">Unscheduled</option>' in library_panel
@@ -134,21 +135,27 @@ def test_library_filter_is_single_choice_sorted_by_name() -> None:
     assert "function filteredLibraryAnnouncements(" in source
     assert "function announcementSortByName(" in source
     assert "function announcementIsScheduled(" in source
+    assert "function schedulesAffectingAnnouncement(" in source
     assert "function newslinesUsingAnnouncement(" in source
     assert "newslineIncludesAnnouncement" in source
-    assert "opening_announcement_id" in source.split("NEWSLINE_SPOKEN_KEYS", 1)[1].split(
+    spoken_keys = source.split("NEWSLINE_SPOKEN_KEYS", 1)[1].split("\nfunction ", 1)[0]
+    assert "opening_announcement_id" in spoken_keys
+    assert "resume_announcement_id" in spoken_keys
+    affecting = source.split("function schedulesAffectingAnnouncement(", 1)[1].split(
         "\nfunction ", 1
     )[0]
+    assert "newslinesUsingAnnouncement(announcementId)" in affecting
+    assert "schedulesUsingAnnouncement(news.id)" in affecting
     scheduled = source.split("function announcementIsScheduled(", 1)[1].split(
         "\nfunction ", 1
     )[0]
-    assert "newslinesUsingAnnouncement(announcementId)" in scheduled
-    assert "schedulesUsingAnnouncement(item.id)" in scheduled
+    assert "schedulesAffectingAnnouncement(announcementId)" in scheduled
     filtered = source.split("function filteredLibraryAnnouncements(", 1)[1].split(
         "\nfunction ", 1
     )[0]
-    assert 'filter === "scheduled") return announcementIsScheduled' in filtered
-    assert 'filter === "unscheduled") return !announcementIsScheduled' in filtered
+    assert "schedulesAffectingAnnouncement(item.id)" in filtered
+    assert 'filter === "scheduled"' in filtered
+    assert 'filter === "unscheduled"' in filtered
     assert 'filter === "baseline"' in filtered
     assert 'filter === "non-baseline"' in filtered
     assert "announcementSortByName" in filtered
@@ -156,9 +163,10 @@ def test_library_filter_is_single_choice_sorted_by_name() -> None:
     assert "localeCompare" in sort
     assert "renderLibrary(filteredLibraryAnnouncements())" in source
     assert 'getElementById("library-filter").addEventListener("change"' in source
-    assert "No announcements match this filter." in source.split("function renderLibrary", 1)[1].split(
-        "\nfunction ", 1
-    )[0]
+    library = source.split("function renderLibrary", 1)[1].split("\nfunction ", 1)[0]
+    assert "No announcements match this filter." in library
+    assert 'getElementById("library-filter-count")' in library
+    assert "announcements" in library
 
 
 def test_newsline_preview_uses_a_lower_tone_for_ptt_release() -> None:

@@ -599,13 +599,16 @@ Repeater timeout 180 seconds.</p>
             <div class="toolbar">
               <label class="library-filter" for="library-filter">
                 <span class="label">Filter</span>
-                <select id="library-filter">
-                  <option value="all" selected>All</option>
-                  <option value="scheduled">Scheduled</option>
-                  <option value="unscheduled">Unscheduled</option>
-                  <option value="baseline">Scheduled as Baseline</option>
-                  <option value="non-baseline">Scheduled as non-Baseline</option>
-                </select>
+                <span class="library-filter-controls">
+                  <select id="library-filter">
+                    <option value="all" selected>All</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="unscheduled">Unscheduled</option>
+                    <option value="baseline">Scheduled as Baseline</option>
+                    <option value="non-baseline">Scheduled as non-Baseline</option>
+                  </select>
+                  <span id="library-filter-count" class="library-filter-count" aria-live="polite">0</span>
+                </span>
               </label>
               <button type="button" class="primary" id="new-announcement">New announcement</button>
             </div>
