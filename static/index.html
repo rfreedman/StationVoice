@@ -553,6 +553,33 @@ Repeater timeout 180 seconds.</p>
               <h2 class="subhead">Schedules</h2>
             </summary>
             <div class="toolbar">
+              <div class="schedule-filters">
+                <label class="list-filter" for="schedule-filter-enabled">
+                  <span class="label">Enabled</span>
+                  <select id="schedule-filter-enabled">
+                    <option value="all" selected>All</option>
+                    <option value="enabled">Enabled</option>
+                    <option value="disabled">Disabled</option>
+                  </select>
+                </label>
+                <label class="list-filter" for="schedule-filter-type">
+                  <span class="label">Type</span>
+                  <select id="schedule-filter-type">
+                    <option value="all" selected>All</option>
+                    <option value="baseline">Baseline</option>
+                    <option value="overlay">Overlay</option>
+                  </select>
+                </label>
+                <label class="list-filter" for="schedule-filter-warning">
+                  <span class="label">With Warning</span>
+                  <select id="schedule-filter-warning">
+                    <option value="all" selected>All</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </label>
+                <span id="schedule-filter-count" class="library-filter-count" aria-live="polite">0</span>
+              </div>
               <div class="toolbar-actions">
                 <label class="inline-check">
                   <input id="baseline-randomize" type="checkbox" />

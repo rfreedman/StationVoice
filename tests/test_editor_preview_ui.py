@@ -64,6 +64,38 @@ def test_schedule_list_has_no_delete_detail_does() -> None:
     assert "syncDeleteScheduleButton" in source
 
 
+def test_schedule_list_has_enabled_type_and_warning_filters() -> None:
+    source = APP_JS.read_text(encoding="utf-8")
+    html = (APP_JS.parent / "index.html").read_text(encoding="utf-8")
+    panel = html.split(">Schedules</h2>", 1)[1].split("Announcement library", 1)[0]
+    assert 'id="schedule-filter-enabled"' in panel
+    assert 'id="schedule-filter-type"' in panel
+    assert 'id="schedule-filter-warning"' in panel
+    assert 'id="schedule-filter-count"' in panel
+    assert 'value="all" selected>All</option>' in panel
+    assert 'value="enabled">Enabled</option>' in panel
+    assert 'value="disabled">Disabled</option>' in panel
+    assert 'value="baseline">Baseline</option>' in panel
+    assert 'value="overlay">Overlay</option>' in panel
+    assert 'value="yes">Yes</option>' in panel
+    assert 'value="no">No</option>' in panel
+    assert "function filteredSchedules(" in source
+    filtered = source.split("function filteredSchedules(", 1)[1].split("\nfunction ", 1)[0]
+    assert 'enabledFilter === "enabled"' in filtered
+    assert 'enabledFilter === "disabled"' in filtered
+    assert 'typeFilter === "baseline"' in filtered
+    assert 'typeFilter === "overlay"' in filtered
+    assert 'warningFilter === "yes"' in filtered
+    assert 'warningFilter === "no"' in filtered
+    assert "renderSchedules(filteredSchedules(schedules))" in source
+    assert "schedule-filter-enabled" in source
+    assert "schedule-filter-type" in source
+    assert "schedule-filter-warning" in source
+    render = source.split("function renderSchedules", 1)[1].split("\nfunction ", 1)[0]
+    assert 'getElementById("schedule-filter-count")' in render
+    assert "No schedules match these filters." in render
+
+
 def test_save_stays_disabled_until_the_editor_differs_from_its_original() -> None:
     source = APP_JS.read_text(encoding="utf-8")
     snapshot = source.split("function formSnapshot()", 1)[1].split("function isEditorDirty()", 1)[0]

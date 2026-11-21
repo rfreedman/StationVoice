@@ -1517,12 +1517,46 @@ function nextRunSortKey(value) {
   return Number.isNaN(ms) ? Number.POSITIVE_INFINITY : ms;
 }
 
+/**
+ * @param {Array.<ScheduleRow>} rows
+ * @returns {Array.<ScheduleRow>}
+ */
+function filteredSchedules(rows) {
+  const enabledEl = document.getElementById("schedule-filter-enabled");
+  const typeEl = document.getElementById("schedule-filter-type");
+  const warningEl = document.getElementById("schedule-filter-warning");
+  const enabledFilter = enabledEl ? enabledEl.value : "all";
+  const typeFilter = typeEl ? typeEl.value : "all";
+  const warningFilter = warningEl ? warningEl.value : "all";
+  return rows.filter((row) => {
+    if (enabledFilter === "enabled" && !row.enabled) return false;
+    if (enabledFilter === "disabled" && row.enabled) return false;
+    if (typeFilter === "baseline" && row.kind !== "baseline") return false;
+    if (typeFilter === "overlay" && row.kind === "baseline") return false;
+    const hasWarning = Boolean(row.warning);
+    if (warningFilter === "yes" && !hasWarning) return false;
+    if (warningFilter === "no" && hasWarning) return false;
+    return true;
+  });
+}
+
 /** @param {Array.<ScheduleRow>} rows */
 function renderSchedules(rows) {
   const body = document.getElementById("schedule-rows");
   const empty = document.getElementById("schedule-empty");
+  const countEl = document.getElementById("schedule-filter-count");
   body.replaceChildren();
   empty.classList.toggle("hidden", rows.length > 0);
+  if (countEl) {
+    const n = rows.length;
+    countEl.textContent = n === 1 ? "1 schedule" : `${n} schedules`;
+  }
+  if (rows.length === 0) {
+    empty.textContent =
+      schedules.length === 0
+        ? "No schedules yet. Create an announcement, then a baseline schedule."
+        : "No schedules match these filters.";
+  }
   const sorted = [...rows].sort((a, b) => {
     const diff = nextRunSortKey(a.next_run_at) - nextRunSortKey(b.next_run_at);
     if (diff !== 0) return diff;
@@ -2019,7 +2053,7 @@ async function refreshHome({ background = false } = {}) {
     if (payload.clock_date && !dateField.value) dateField.value = payload.clock_date;
     updateClockWeekday(dateField.value || payload.clock_date);
     renderClock(payload.clock || []);
-    renderSchedules(payload.schedules || []);
+    renderSchedules(filteredSchedules(schedules));
     renderLibrary(filteredLibraryAnnouncements());
     document.getElementById("baseline-randomize").checked = Boolean(settings.baseline_randomize);
     const scheduleEl = document.getElementById("newsline-schedule");
@@ -4222,6 +4256,15 @@ document.getElementById("new-announcement").addEventListener("click", () => {
 document.getElementById("library-filter").addEventListener("change", () => {
   renderLibrary(filteredLibraryAnnouncements());
 });
+for (const id of [
+  "schedule-filter-enabled",
+  "schedule-filter-type",
+  "schedule-filter-warning",
+]) {
+  document.getElementById(id).addEventListener("change", () => {
+    renderSchedules(filteredSchedules(schedules));
+  });
+}
 document.getElementById("nav-home").addEventListener("click", () => goToHash("#/"));
 document.getElementById("nav-help").addEventListener("click", () => goToHash("#/help"));
 document.getElementById("nav-phonemes").addEventListener("click", () => goToHash("#/phonemes"));
