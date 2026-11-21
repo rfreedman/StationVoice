@@ -1059,7 +1059,7 @@ button.small {
 .schedule-filters {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px 16px;
 }
 
@@ -1078,6 +1078,20 @@ button.small {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* Same column rhythm as sibling filters so the count lines up with the selects. */
+.schedule-filter-count {
+  min-width: 0;
+}
+
+.schedule-filter-count .library-filter-count {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: calc(1em + 16px + 2px);
+  padding: 8px 0;
+  border: 1px solid transparent;
 }
 
 .clock-weekday {
