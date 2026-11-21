@@ -597,6 +597,16 @@ Repeater timeout 180 seconds.</p>
               <h2 class="subhead">Announcement library</h2>
             </summary>
             <div class="toolbar">
+              <label class="library-filter" for="library-filter">
+                <span class="label">Filter</span>
+                <select id="library-filter">
+                  <option value="all" selected>All</option>
+                  <option value="scheduled">Scheduled</option>
+                  <option value="unscheduled">Unscheduled</option>
+                  <option value="baseline">Scheduled as Baseline</option>
+                  <option value="non-baseline">Scheduled as non-Baseline</option>
+                </select>
+              </label>
               <button type="button" class="primary" id="new-announcement">New announcement</button>
             </div>
             <div class="table-wrap">

@@ -71,6 +71,47 @@ def test_newsline_item_requires_a_station_id_and_protects_it(client: TestClient)
     assert body["resume_announcement_id"] == station_id
     removed = client.delete(f"/api/announcements/{station_id}")
     assert removed.status_code == 409
+    assert "Newsline" in str(json_dict(removed)["detail"])
+
+
+def test_cannot_delete_spoken_segments_of_unscheduled_newsline(client: TestClient) -> None:
+    """Included TTS pieces stay locked even when the newsline has no schedule."""
+    opening = json_dict(
+        client.post("/api/announcements", json={"name": "Opening", "text": "Welcome."})
+    )
+    station = json_dict(
+        client.post("/api/announcements", json={"name": "Station ID", "text": "This is W1ABC."})
+    )
+    closing = json_dict(
+        client.post("/api/announcements", json={"name": "Closing", "text": "Good night."})
+    )
+    resume = json_dict(
+        client.post("/api/announcements", json={"name": "Resume", "text": "Back to the net."})
+    )
+    opening_id = opening["id"]
+    station_id = station["id"]
+    closing_id = closing["id"]
+    resume_id = resume["id"]
+    assert isinstance(opening_id, str)
+    assert isinstance(station_id, str)
+    assert isinstance(closing_id, str)
+    assert isinstance(resume_id, str)
+    news = client.post(
+        "/api/announcements",
+        json={
+            "name": "Sunday Newsline",
+            "kind": "newsline",
+            "opening_announcement_id": opening_id,
+            "station_id_announcement_id": station_id,
+            "closing_announcement_id": closing_id,
+            "resume_announcement_id": resume_id,
+        },
+    )
+    assert news.status_code == 200
+    for spoken_id in (opening_id, station_id, closing_id, resume_id):
+        blocked = client.delete(f"/api/announcements/{spoken_id}")
+        assert blocked.status_code == 409
+        assert "Sunday Newsline" in str(json_dict(blocked)["detail"])
 
 
 def test_schedule_list_keeps_a_newsline_announcement(client: TestClient) -> None:

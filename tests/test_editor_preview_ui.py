@@ -102,9 +102,10 @@ def test_library_has_speak_stop_and_detail_has_delete() -> None:
     assert 'dataset.libraryStop = "1"' in library
     assert 'textContent = "Delete"' not in library
     assert "function deleteAnnouncement(" in source
-    assert "schedulesUsingAnnouncement" in source.split("async function deleteAnnouncement", 1)[1].split(
-        "\nfunction ", 1
-    )[0]
+    delete_fn = source.split("async function deleteAnnouncement", 1)[1].split("\nfunction ", 1)[0]
+    assert "schedulesUsingAnnouncement" in delete_fn
+    assert "newslinesUsingAnnouncement" in delete_fn
+    assert "Newsline announcements:" in delete_fn
     assert 'id="delete-announcement"' in html
     announcement = html.split('id="view-announcement"', 1)[1].split('id="view-schedule"', 1)[0]
     spoken_body = announcement.split('<div id="spoken-fields">', 1)[1].split(
@@ -118,6 +119,46 @@ def test_library_has_speak_stop_and_detail_has_delete() -> None:
     assert "async function speakWithParams(" in source
     assert "async function speakLibraryItem(" in source
     assert "async function playNewsline(opts)" in source
+
+
+def test_library_filter_is_single_choice_sorted_by_name() -> None:
+    source = APP_JS.read_text(encoding="utf-8")
+    html = (APP_JS.parent / "index.html").read_text(encoding="utf-8")
+    library_panel = html.split("Announcement library", 1)[1].split('id="view-help"', 1)[0]
+    assert 'id="library-filter"' in library_panel
+    assert 'value="all" selected>All</option>' in library_panel
+    assert 'value="scheduled">Scheduled</option>' in library_panel
+    assert 'value="unscheduled">Unscheduled</option>' in library_panel
+    assert 'value="baseline">Scheduled as Baseline</option>' in library_panel
+    assert 'value="non-baseline">Scheduled as non-Baseline</option>' in library_panel
+    assert "function filteredLibraryAnnouncements(" in source
+    assert "function announcementSortByName(" in source
+    assert "function announcementIsScheduled(" in source
+    assert "function newslinesUsingAnnouncement(" in source
+    assert "newslineIncludesAnnouncement" in source
+    assert "opening_announcement_id" in source.split("NEWSLINE_SPOKEN_KEYS", 1)[1].split(
+        "\nfunction ", 1
+    )[0]
+    scheduled = source.split("function announcementIsScheduled(", 1)[1].split(
+        "\nfunction ", 1
+    )[0]
+    assert "newslinesUsingAnnouncement(announcementId)" in scheduled
+    assert "schedulesUsingAnnouncement(item.id)" in scheduled
+    filtered = source.split("function filteredLibraryAnnouncements(", 1)[1].split(
+        "\nfunction ", 1
+    )[0]
+    assert 'filter === "scheduled") return announcementIsScheduled' in filtered
+    assert 'filter === "unscheduled") return !announcementIsScheduled' in filtered
+    assert 'filter === "baseline"' in filtered
+    assert 'filter === "non-baseline"' in filtered
+    assert "announcementSortByName" in filtered
+    sort = source.split("function announcementSortByName(", 1)[1].split("\nfunction ", 1)[0]
+    assert "localeCompare" in sort
+    assert "renderLibrary(filteredLibraryAnnouncements())" in source
+    assert 'getElementById("library-filter").addEventListener("change"' in source
+    assert "No announcements match this filter." in source.split("function renderLibrary", 1)[1].split(
+        "\nfunction ", 1
+    )[0]
 
 
 def test_newsline_preview_uses_a_lower_tone_for_ptt_release() -> None:

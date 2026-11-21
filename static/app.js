@@ -1061,6 +1061,55 @@ function schedulesUsingAnnouncement(announcementId) {
   return schedules.filter((row) => row.announcement_id === announcementId);
 }
 
+const NEWSLINE_SPOKEN_KEYS = [
+  "opening_announcement_id",
+  "station_id_announcement_id",
+  "closing_announcement_id",
+  "resume_announcement_id",
+];
+
+/** @param {AnnouncementItem} newsline @param {string} announcementId */
+function newslineIncludesAnnouncement(newsline, announcementId) {
+  return NEWSLINE_SPOKEN_KEYS.some((key) => newsline[key] === announcementId);
+}
+
+/** Newsline announcements that reference this id (scheduled or not). */
+function newslinesUsingAnnouncement(announcementId) {
+  return announcements.filter(
+    (item) => item.kind === "newsline" && newslineIncludesAnnouncement(item, announcementId),
+  );
+}
+
+/** True if scheduled directly, or included in a scheduled newsline announcement. */
+function announcementIsScheduled(announcementId) {
+  if (schedulesUsingAnnouncement(announcementId).length > 0) return true;
+  return newslinesUsingAnnouncement(announcementId).some(
+    (item) => schedulesUsingAnnouncement(item.id).length > 0,
+  );
+}
+
+/** @param {AnnouncementItem} a @param {AnnouncementItem} b */
+function announcementSortByName(a, b) {
+  return String(a.name || "").localeCompare(String(b.name || ""), undefined, {
+    sensitivity: "base",
+  });
+}
+
+/** @returns {Array.<AnnouncementItem>} */
+function filteredLibraryAnnouncements() {
+  const filterEl = document.getElementById("library-filter");
+  const filter = filterEl ? filterEl.value : "all";
+  const matched = announcements.filter((item) => {
+    const used = schedulesUsingAnnouncement(item.id);
+    if (filter === "scheduled") return announcementIsScheduled(item.id);
+    if (filter === "unscheduled") return !announcementIsScheduled(item.id);
+    if (filter === "baseline") return used.some((row) => row.kind === "baseline");
+    if (filter === "non-baseline") return used.some((row) => row.kind !== "baseline");
+    return true;
+  });
+  return matched.sort(announcementSortByName);
+}
+
 function syncTriggerNowButtons() {
   const playing = announcementIsPlaying();
   for (const button of document.querySelectorAll("[data-trigger-now]")) {
@@ -1801,11 +1850,20 @@ async function deleteSchedule(row) {
 async function deleteAnnouncement(item) {
   if (!item?.id) return false;
   if (announcementIsPlaying() || editorPlaying) return false;
-  const usedBy = schedulesUsingAnnouncement(item.id);
-  if (usedBy.length > 0) {
-    const names = usedBy.map((row) => row.name).join(", ");
+  const usedBySchedules = schedulesUsingAnnouncement(item.id);
+  const usedByNewslines = newslinesUsingAnnouncement(item.id);
+  if (usedBySchedules.length > 0 || usedByNewslines.length > 0) {
+    const parts = [];
+    if (usedBySchedules.length > 0) {
+      parts.push(`Schedules: ${usedBySchedules.map((row) => row.name).join(", ")}`);
+    }
+    if (usedByNewslines.length > 0) {
+      parts.push(
+        `Newsline announcements: ${usedByNewslines.map((row) => row.name).join(", ")}`,
+      );
+    }
     window.alert(
-      `This announcement cannot be deleted because it is in use.\n\nSchedules: ${names}`,
+      `This announcement cannot be deleted because it is in use.\n\n${parts.join("\n")}`,
     );
     return false;
   }
@@ -1831,6 +1889,12 @@ function renderLibrary(items) {
   const empty = document.getElementById("library-empty");
   body.replaceChildren();
   empty.classList.toggle("hidden", items.length > 0);
+  if (items.length === 0) {
+    empty.textContent =
+      announcements.length === 0
+        ? "No announcements yet. Write the text first, then attach schedules to it."
+        : "No announcements match this filter.";
+  }
   for (const item of items) {
     const tr = document.createElement("tr");
     const preview = item.kind === "newsline"
@@ -1941,7 +2005,7 @@ async function refreshHome({ background = false } = {}) {
     updateClockWeekday(dateField.value || payload.clock_date);
     renderClock(payload.clock || []);
     renderSchedules(payload.schedules || []);
-    renderLibrary(announcements);
+    renderLibrary(filteredLibraryAnnouncements());
     document.getElementById("baseline-randomize").checked = Boolean(settings.baseline_randomize);
     const scheduleEl = document.getElementById("newsline-schedule");
     if (scheduleEl) scheduleEl.textContent = newslineScheduleText(settings);
@@ -4139,6 +4203,9 @@ async function route() {
 document.getElementById("new-announcement").addEventListener("click", () => {
   if (readOnly) return;
   goToHash("#/announcements/new");
+});
+document.getElementById("library-filter").addEventListener("change", () => {
+  renderLibrary(filteredLibraryAnnouncements());
 });
 document.getElementById("nav-home").addEventListener("click", () => goToHash("#/"));
 document.getElementById("nav-help").addEventListener("click", () => goToHash("#/help"));

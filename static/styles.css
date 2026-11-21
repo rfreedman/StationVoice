@@ -1033,6 +1033,23 @@ button.small {
   min-width: 12.5rem;
 }
 
+.library-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 14rem;
+}
+
+.library-filter .label {
+  margin-bottom: 0;
+}
+
+.library-filter select {
+  width: auto;
+  min-width: 14rem;
+  padding: 8px 12px;
+}
+
 .clock-weekday {
   color: var(--ink);
   font-variant-numeric: tabular-nums;
