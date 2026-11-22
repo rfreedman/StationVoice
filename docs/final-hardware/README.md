@@ -1,6 +1,6 @@
 # Final hardware: Linux host + two DRA-36M Digital Radio Adapters
 
-A **DRA** (Digital Radio Adapter) is the USB box between the computer and one radio. This project uses the [Masters Communications **DRA-36M**](https://www.masterscommunications.com/products/radio-adapter/dra/dra36m.html). It plays the announcement into the radio and keys the transmitter. The setting `TTS_RADIO_BACKEND=dra` means the app is using those adapters.
+A **DRA** (Digital Radio Adapter) is the USB box between the computer and one radio. This project uses the [Masters Communications **DRA-36M**](https://www.masterscommunications.com/products/radio-adapter/dra/dra36m.html). It plays the announcement into the radio and keys the transmitter. The setting `RADIO_BACKEND=dra` means the app is using those adapters.
 
 **Piper** is a text-to-speech (TTS) library. It turns announcement text into the speech the radio transmits.
 
@@ -14,7 +14,7 @@ Development and production **with radios** run on a 64-bit Linux computer. That 
 
 **Host:** a 64-bit Linux computer with an **internal SSD**. A Raspberry Pi 4 was considered; a used mini PC was used instead (faster CPU, internal SSD, similar cost in 2026). The machine used for radio development, and the intended production host, runs **Ubuntu 26.04.1 LTS**.
 
-**Bench status (October 2026):** On that Linux host, single-DRA **`retest`** passed with **IC-2720** and **IC-207H**; dual-DRA **`dual-retest`** passed with **IC-2720** + **FT-8900R**. The announcements app (`TTS_RADIO_BACKEND=dra`) has been run there with two DRAs and transmitted on both radios. Summary: [verification table](dra36m-check-tests.md#verification-status-october-2026), [bench record](bench-record.md), [dual checklist](dra36m-check-tests.md#dual-dra-two-adapters-on-one-host).
+**Bench status (October 2026):** On that Linux host, single-DRA **`retest`** passed with **IC-2720** and **IC-207H**; dual-DRA **`dual-retest`** passed with **IC-2720** + **FT-8900R**. The announcements app (`RADIO_BACKEND=dra`) has been run there with two DRAs and transmitted on both radios. Summary: [verification table](dra36m-check-tests.md#verification-status-october-2026), [bench record](bench-record.md), [dual checklist](dra36m-check-tests.md#dual-dra-two-adapters-on-one-host).
 
 ## Parts list / cost
 
@@ -153,17 +153,17 @@ Announcements go out on **both** radios at once. Never talk on one machine while
 
 | Function | Hardware | Software |
 |---|---|---|
-| Busy | Each DRA COS (HID), from that radio’s pin 6 SQL | `channel_busy()` is true if **either** COS is active. Defer with existing `TTS_BUSY_RETRY_SECONDS` / `TTS_BUSY_GIVE_UP_SECONDS` until **both** are clear |
-| PTT | Each DRA CM119A **GPIO3** | `set_ptt(True)` asserts **both** HID PTT bits. Keep `TTS_PTT_LEAD_SECONDS` (default 0.4 s) before audio. Release both in `finally` |
+| Busy | Each DRA COS (HID), from that radio’s pin 6 SQL | `channel_busy()` is true if **either** COS is active. Defer with existing `BUSY_RETRY_SECONDS` / `BUSY_GIVE_UP_SECONDS` until **both** are clear |
+| PTT | Each DRA CM119A **GPIO3** | `set_ptt(True)` asserts **both** HID PTT bits. Keep `PTT_LEAD_SECONDS` (default 0.4 s) before audio. Release both in `finally` |
 | Audio | Two PortAudio (CM119A) devices | Play the **same** PCM on **both** devices, or a PulseAudio / PipeWire combine sink that feeds both. Piper is mono; place it on the **left** channel (silence on right) on **each** DRA to match **JU3 = L** |
 
 SQL polarity: radio pin 6 is **high when the squelch is open**. CM119A COS for AllStar is normally **active-low**. Invert in software after measuring, or use any NPN inverter Masters documents for that COS input. Confirm with a DMM on pin 6 (squelched vs open) and on the HID bit before relying on busy detect.
 
-**Application:** Set `TTS_RADIO_BACKEND=dra` on the **one Linux computer** that runs this app with radios (keep `stub` on macOS, where radios have not been tried). That configuration has been tested on Ubuntu 26.04.1 LTS with two DRAs: the app transmitted on both radios. The app uses [`DraRadio`](../../app/dra_radio.py): defer/drop on busy, **re-check after synthesize**, optional **`TTS_DRA_CLEAR_SECONDS`** (continuous idle before PTT, same idea as `voice-gate`). While the scheduler runs, **background COS polling** (`TTS_DRA_COS_TRACK`, default on) accrues idle time so Trigger now or a slot fire can **key immediately** if the channel was already quiet long enough. Final busy check at keying; **both** PTT lines together; **left** USB channel; PTT lead as USB silence.
+**Application:** Set `RADIO_BACKEND=dra` on the **one Linux computer** that runs this app with radios (keep `stub` on macOS, where radios have not been tried). That configuration has been tested on Ubuntu 26.04.1 LTS with two DRAs: the app transmitted on both radios. The app uses [`DraRadio`](../../app/dra_radio.py): defer/drop on busy, **re-check after synthesize**, optional **`DRA_CLEAR_SECONDS`** (continuous idle before PTT, same idea as `voice-gate`). While the scheduler runs, **background COS polling** (`DRA_COS_TRACK`, default on) accrues idle time so Trigger now or a slot fire can **key immediately** if the channel was already quiet long enough. Final busy check at keying; **both** PTT lines together; **left** USB channel; PTT lead as USB silence.
 
-**One DRA** (a single radio on the Linux host): optional **`TTS_DRA_HID_PATH`** (hex from `probe`) when several CM119 interfaces exist.
+**One DRA** (a single radio on the Linux host): optional **`DRA_HID_PATH`** (hex from `probe`) when several CM119 interfaces exist.
 
-**Two DRAs on the same Linux host:** each radio has its own DRA-36M and therefore its own **CM119A** USB audio + HID. Expect **two** PortAudio DRA devices and **two** HID paths at startup. Plug each DRA into a **fixed** motherboard USB port; do **not** set `TTS_DRA_HID_PATH` (that pins one CM119 only). Use **`TTS_DRA_AUDIO_DEVICES`** if PortAudio order is ambiguous. See [Identifying two identical adapters](#identifying-two-identical-adapters) and [`docs/linux-host.md`](../linux-host.md).
+**Two DRAs on the same Linux host:** each radio has its own DRA-36M and therefore its own **CM119A** USB audio + HID. Expect **two** PortAudio DRA devices and **two** HID paths at startup. Plug each DRA into a **fixed** motherboard USB port; do **not** set `DRA_HID_PATH` (that pins one CM119 only). Use **`DRA_AUDIO_DEVICES`** if PortAudio order is ambiguous. See [Identifying two identical adapters](#identifying-two-identical-adapters) and [`docs/linux-host.md`](../linux-host.md).
 
 When startup succeeds, the server logs **`Startup complete in …s (radio mode: dra)`** or **`… stub`**, reflecting the registered radio implementation. Use that line (stderr or `data/logs/announcements.log`) to confirm the Linux host is on **dra** before relying on on-air PTT/COS.
 

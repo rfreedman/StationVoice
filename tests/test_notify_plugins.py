@@ -27,7 +27,7 @@ def _reset_notifier() -> Iterator[None]:
 def test_empty_plugins_dir_uses_null_notifier(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setenv("TTS_PLUGINS_DIR", str(tmp_path))
+    monkeypatch.setenv("PLUGINS_DIR", str(tmp_path))
     notify_email.reset_notifier_for_tests()
 
     notifier = notify_email.get_notifier()
@@ -42,7 +42,7 @@ def test_broken_plugin_file_falls_back_to_null(
 ) -> None:
     bad = tmp_path / "broken.py"
     _ = bad.write_text("this is not valid python {\n", encoding="utf-8")
-    monkeypatch.setenv("TTS_PLUGINS_DIR", str(tmp_path))
+    monkeypatch.setenv("PLUGINS_DIR", str(tmp_path))
     notify_email.reset_notifier_for_tests()
 
     assert isinstance(notify_email.get_notifier(), NullAdminNotifier)
@@ -63,7 +63,7 @@ class ExtraNotifier(AdminNotifier):
 """
     _ = plugin_a.write_text(source, encoding="utf-8")
     _ = plugin_b.write_text(source, encoding="utf-8")
-    monkeypatch.setenv("TTS_PLUGINS_DIR", str(tmp_path))
+    monkeypatch.setenv("PLUGINS_DIR", str(tmp_path))
     notify_email.reset_notifier_for_tests()
 
     assert isinstance(notify_email.get_notifier(), NullAdminNotifier)
@@ -89,7 +89,7 @@ class SpyNotifier(AdminNotifier):
 """,
         encoding="utf-8",
     )
-    monkeypatch.setenv("TTS_PLUGINS_DIR", str(tmp_path))
+    monkeypatch.setenv("PLUGINS_DIR", str(tmp_path))
     notify_email.reset_notifier_for_tests()
 
     notifier = notify_email.get_notifier()
@@ -104,7 +104,7 @@ def test_repo_plugins_dir_empty_means_null_notifier(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Live ``plugins/`` may contain a developer copy; tests use an empty stand-in."""
-    monkeypatch.setenv("TTS_PLUGINS_DIR", str(tmp_path))
+    monkeypatch.setenv("PLUGINS_DIR", str(tmp_path))
     notify_email.reset_notifier_for_tests()
     notifier = notify_email.get_notifier()
     assert isinstance(notifier, NullAdminNotifier)
@@ -116,7 +116,7 @@ def test_bird_example_activates_when_copied_into_plugins(
 ) -> None:
     _ = install_stub_bird_sdk()
     _ = install_bird_plugin(tmp_path)
-    monkeypatch.setenv("TTS_PLUGINS_DIR", str(tmp_path))
+    monkeypatch.setenv("PLUGINS_DIR", str(tmp_path))
     notify_email.reset_notifier_for_tests()
 
     notifier = notify_email.get_notifier()
@@ -130,7 +130,7 @@ def test_bird_plugin_missing_sdk_fails_startup_load(
     _ = sys.modules.pop("bird", None)
     install_stub_bird_env()
     _ = install_bird_plugin(tmp_path)
-    monkeypatch.setenv("TTS_PLUGINS_DIR", str(tmp_path))
+    monkeypatch.setenv("PLUGINS_DIR", str(tmp_path))
     notify_email.reset_notifier_for_tests()
 
     with pytest.raises(StartupError, match="messagebird-sdk"):
@@ -145,7 +145,7 @@ def test_bird_plugin_missing_env_fails_startup_load(
     monkeypatch.delenv("BIRD_API_KEY", raising=False)
     monkeypatch.delenv("EMAIL_FROM", raising=False)
     _ = install_bird_plugin(tmp_path)
-    monkeypatch.setenv("TTS_PLUGINS_DIR", str(tmp_path))
+    monkeypatch.setenv("PLUGINS_DIR", str(tmp_path))
     notify_email.reset_notifier_for_tests()
 
     with pytest.raises(StartupError, match="Bird email not configured"):

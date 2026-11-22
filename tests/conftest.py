@@ -8,10 +8,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 # Must be set before any app module is imported (app.config reads them at import).
-_ = os.environ.setdefault("TTS_SESSION_SECRET", "test-session-secret-for-pytest")
+_ = os.environ.setdefault("SESSION_SECRET", "test-session-secret-for-pytest")
 _ = os.environ.setdefault("STATION_CALL", "N0TST")
 _ = os.environ.setdefault("STATION_NAME", "Test Radio Club")
-os.environ["TTS_SKIP_DOTENV"] = "1"
+os.environ["SKIP_DOTENV"] = "1"
 
 from app.auth import hash_password
 from app.models import Announcement, TtsAnnouncement
@@ -115,12 +115,12 @@ def restore_operator_settings() -> Iterator[None]:
 @pytest.fixture(autouse=True)
 def isolate_admin_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Admin saves must not touch the developer .env, history, or branding files."""
-    monkeypatch.setenv("TTS_DOTENV_PATH", str(tmp_path / "runtime.env"))
-    monkeypatch.setenv("TTS_SECRETS_DOTENV_PATH", str(tmp_path / "runtime.secrets.env"))
-    monkeypatch.setenv("TTS_CONFIG_HISTORY_PATH", str(tmp_path / "config_history.json"))
-    monkeypatch.setenv("TTS_BRANDING_DIR", str(tmp_path / "branding"))
+    monkeypatch.setenv("DOTENV_PATH", str(tmp_path / "runtime.env"))
+    monkeypatch.setenv("SECRETS_DOTENV_PATH", str(tmp_path / "runtime.secrets.env"))
+    monkeypatch.setenv("CONFIG_HISTORY_PATH", str(tmp_path / "config_history.json"))
+    monkeypatch.setenv("BRANDING_DIR", str(tmp_path / "branding"))
     monkeypatch.setenv(
-        "TTS_DEFAULT_ANNOUNCEMENT_PATH", str(tmp_path / "default-announcement.txt")
+        "DEFAULT_ANNOUNCEMENT_PATH", str(tmp_path / "default-announcement.txt")
     )
 
 
@@ -132,7 +132,7 @@ def isolate_plugins_dir(
     from app import notify_email
 
     plugins = tmp_path_factory.mktemp("test-plugins")
-    monkeypatch.setenv("TTS_PLUGINS_DIR", str(plugins))
+    monkeypatch.setenv("PLUGINS_DIR", str(plugins))
     notify_email.reset_notifier_for_tests()
     yield
     notify_email.reset_notifier_for_tests()

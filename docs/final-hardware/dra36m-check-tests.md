@@ -1,6 +1,6 @@
 # DRA-36M bench tests (`scripts/dra36m_check.py`)
 
-A **DRA** (Digital Radio Adapter) is the USB box between the computer and one radio. This project uses the [Masters Communications **DRA-36M**](https://www.masterscommunications.com/products/radio-adapter/dra/dra36m.html). It plays the announcement into the radio and keys the transmitter. The setting `TTS_RADIO_BACKEND=dra` means the app is using those adapters.
+A **DRA** (Digital Radio Adapter) is the USB box between the computer and one radio. This project uses the [Masters Communications **DRA-36M**](https://www.masterscommunications.com/products/radio-adapter/dra/dra36m.html). It plays the announcement into the radio and keys the transmitter. The setting `RADIO_BACKEND=dra` means the app is using those adapters.
 
 **Piper** is a text-to-speech (TTS) library. It turns announcement text into the speech the radio transmits.
 
@@ -18,7 +18,7 @@ Script path: [`scripts/dra36m_check.py`](../../scripts/dra36m_check.py) ([`scrip
 | Single DRA | **Linux** (Ubuntu 26.04.1 LTS) | **IC-207H** (production) | same `retest` | **Pass** (2026-10-24) |
 | Dual DRA | **Linux** (Ubuntu 26.04.1 LTS) | **IC-2720** + **FT-8900R** | `dual-retest -c left --with-voice --lead 0.6` | **Pass** (2026-10-24) |
 
-The announcements app (`TTS_RADIO_BACKEND=dra`) has been run on this Linux host with two DRAs and transmitted on both radios. On-air production will use **two IC-207H**; dual **`dual-retest`** with both production rigs on the Linux host is not recorded yet. Radios have not been tried on macOS.
+The announcements app (`RADIO_BACKEND=dra`) has been run on this Linux host with two DRAs and transmitted on both radios. On-air production will use **two IC-207H**; dual **`dual-retest`** with both production rigs on the Linux host is not recorded yet. Radios have not been tried on macOS.
 
 ---
 
@@ -115,7 +115,7 @@ Run from repo root with venv active (`python scripts/dra36m_check.py …`).
 | **`--require N`** | `probe-all` | Minimum paired count (default **2**) |
 | **`--active-high`** | `probe-all`, `dual-retest` | Flip vol_dn polarity in idle COS samples |
 
-**Env:** Leave **`TTS_DRA_HID_PATH` unset** with two DRAs. If PortAudio order is wrong, use fixed USB ports and optional **`TTS_DRA_AUDIO_DEVICES`**.
+**Env:** Leave **`DRA_HID_PATH` unset** with two DRAs. If PortAudio order is wrong, use fixed USB ports and optional **`DRA_AUDIO_DEVICES`**.
 
 Per-radio jumper/COS checkout (first time on a new unit): unplug the other DRA and run the [single-radio order](#recommended-order-single-radio) above.
 

@@ -205,22 +205,22 @@ def set_config_generation(value: int) -> None:
 
 
 def dotenv_path() -> Path:
-    override = os.environ.get("TTS_DOTENV_PATH", "").strip()
+    override = os.environ.get("DOTENV_PATH", "").strip()
     if override:
         return Path(override).expanduser()
-    if os.environ.get("TTS_SKIP_DOTENV", "").strip().lower() in {"1", "true", "yes", "on"}:
-        raise RuntimeError("Refusing to write .env while TTS_SKIP_DOTENV is set; set TTS_DOTENV_PATH")
+    if os.environ.get("SKIP_DOTENV", "").strip().lower() in {"1", "true", "yes", "on"}:
+        raise RuntimeError("Refusing to write .env while SKIP_DOTENV is set; set DOTENV_PATH")
     return ROOT_DIR / ".env"
 
 
 def secrets_dotenv_path() -> Path:
-    """Path to ``.env.secrets`` (Bird / R2 / ADMIN_EMAILS). Tests override with TTS_SECRETS_DOTENV_PATH."""
-    override = os.environ.get("TTS_SECRETS_DOTENV_PATH", "").strip()
+    """Path to ``.env.secrets`` (Bird / R2 / ADMIN_EMAILS). Tests override with SECRETS_DOTENV_PATH."""
+    override = os.environ.get("SECRETS_DOTENV_PATH", "").strip()
     if override:
         return Path(override).expanduser()
-    if os.environ.get("TTS_SKIP_DOTENV", "").strip().lower() in {"1", "true", "yes", "on"}:
+    if os.environ.get("SKIP_DOTENV", "").strip().lower() in {"1", "true", "yes", "on"}:
         raise RuntimeError(
-            "Refusing to write .env.secrets while TTS_SKIP_DOTENV is set; set TTS_SECRETS_DOTENV_PATH"
+            "Refusing to write .env.secrets while SKIP_DOTENV is set; set SECRETS_DOTENV_PATH"
         )
     return ROOT_DIR / ".env.secrets"
 
@@ -275,7 +275,7 @@ def apply_admin_email_notifications(enabled: bool) -> bool:
 
 
 def history_path() -> Path:
-    override = os.environ.get("TTS_CONFIG_HISTORY_PATH", "").strip()
+    override = os.environ.get("CONFIG_HISTORY_PATH", "").strip()
     if override:
         return Path(override).expanduser()
     return DATA_DIR / "config_history.json"

@@ -26,7 +26,7 @@ class AppRuntime:
     phoneme_dictionary: object | None = None
     users: object | None = None
     radio: object | None = None
-    # Set when TTS_RADIO_BACKEND is dra/cm119 but startup fell back to StubRadio.
+    # Set when RADIO_BACKEND is dra/cm119 but startup fell back to StubRadio.
     radio_fallback_reason: str | None = None
     registry: object | None = None
     scheduler: object | None = None

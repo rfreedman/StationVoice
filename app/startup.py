@@ -35,7 +35,7 @@ def _set_radio_fallback_reason(reason: str | None) -> None:
 def init_radio_at_startup() -> None:
     """Eager DRA/stub radio init so misconfiguration fails before serving traffic.
 
-    When ``TTS_RADIO_BACKEND`` is dra/cm119 but no DRA interfaces are attached,
+    When ``RADIO_BACKEND`` is dra/cm119 but no DRA interfaces are attached,
     fall back to ``StubRadio`` with one admin alert instead of exiting.
     """
     from app.config import DRA_ALSA_SPEAKER_LEVEL, dra_alsa_unmute_enabled, radio_backend

@@ -43,7 +43,7 @@ class LogoDisplay(BaseModel):
 
 
 def branding_dir() -> Path:
-    override = os.environ.get("TTS_BRANDING_DIR", "").strip()
+    override = os.environ.get("BRANDING_DIR", "").strip()
     if override:
         return Path(override).expanduser()
     return DATA_DIR / "branding"

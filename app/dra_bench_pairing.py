@@ -31,7 +31,7 @@ class BenchPairingError(RuntimeError):
 def resolve_bench_dra_pairs(hid: HidModule, *, min_pairs: int = 2) -> list[DraBenchPair]:
     """Pair each CM119 HID with a DRA USB audio device (same logic as ``DraRadio.from_config``).
 
-    Ignores ``TTS_DRA_HID_PATH`` (dual bench needs every CM119). Warns if that env is set.
+    Ignores ``DRA_HID_PATH`` (dual bench needs every CM119). Warns if that env is set.
     """
     from app.cm119 import list_cm119_hid_entries
     from app.config import DRA_HID_PATH_BYTES
@@ -39,12 +39,12 @@ def resolve_bench_dra_pairs(hid: HidModule, *, min_pairs: int = 2) -> list[DraBe
 
     if DRA_HID_PATH_BYTES is not None:
         log.warning(
-            "TTS_DRA_HID_PATH is set (%s); dual bench uses all CM119 HID paths. "
+            "DRA_HID_PATH is set (%s); dual bench uses all CM119 HID paths. "
             + "Unset it for production with two DRAs.",
             DRA_HID_PATH_BYTES.hex(),
         )
         print(
-            "WARNING: TTS_DRA_HID_PATH is set; dual bench ignores it and uses all CM119 paths.",
+            "WARNING: DRA_HID_PATH is set; dual bench ignores it and uses all CM119 paths.",
             flush=True,
         )
 
@@ -60,7 +60,7 @@ def resolve_bench_dra_pairs(hid: HidModule, *, min_pairs: int = 2) -> list[DraBe
         raise BenchPairingError(
             f"DRA HID count ({n_hid}) != PortAudio DRA device count ({n_audio}). "
             + "Two radios need two of each (run aplay -l, python scripts/dra36m_check.py probe-all). "
-            + "Unset TTS_DRA_HID_PATH; check udev/plugdev and fixed USB ports."
+            + "Unset DRA_HID_PATH; check udev/plugdev and fixed USB ports."
         )
     if n_hid < min_pairs:
         raise BenchPairingError(

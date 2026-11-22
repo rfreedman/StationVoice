@@ -14,8 +14,8 @@ jobs:
   pytest:
     runs-on: ubuntu-latest
     env:
-      TTS_SKIP_DOTENV: "1"
-      TTS_SESSION_SECRET: test-session-secret-for-pytest
+      SKIP_DOTENV: "1"
+      SESSION_SECRET: test-session-secret-for-pytest
     steps:
       - uses: actions/checkout@v6
 

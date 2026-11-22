@@ -6,7 +6,7 @@ repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 docker run --rm \
   -v "${repo_root}:/w" \
   -w /w \
-  -e TTS_SKIP_DOTENV=1 \
+  -e SKIP_DOTENV=1 \
   -e GITHUB_ACTIONS=true \
   -e UV_PROJECT_ENVIRONMENT=/tmp/dvra-ci-venv \
   ubuntu:24.04 bash -lc '

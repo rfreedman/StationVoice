@@ -62,7 +62,7 @@ def start_cos_tracking() -> None:
     if _thread is not None:
         return
     if not dra_cos_track_enabled():
-        log.info("DRA COS background tracking disabled (TTS_DRA_COS_TRACK=false)")
+        log.info("DRA COS background tracking disabled (DRA_COS_TRACK=false)")
         return
     if radio_backend() not in ("dra", "cm119"):
         return

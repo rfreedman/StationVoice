@@ -164,7 +164,7 @@ def channel_blocks_transmit(radio: Radio, *, clear_seconds: float = 0) -> bool:
 
 
 class StubRadio:
-    """In-memory SQL/PTT stand-in when ``TTS_RADIO_BACKEND=stub`` (default)."""
+    """In-memory SQL/PTT stand-in when ``RADIO_BACKEND=stub`` (default)."""
 
     busy: bool
     ptt: bool
@@ -278,7 +278,7 @@ def create_radio_from_config() -> Radio:
         )
         return radio
     raise RuntimeError(
-        f"Unknown TTS_RADIO_BACKEND={backend!r} (use stub or dra)"
+        f"Unknown RADIO_BACKEND={backend!r} (use stub or dra)"
     )
 
 

@@ -337,7 +337,7 @@ def test_admin_saves_newsline_restart_toggle(client: TestClient) -> None:
     import app.config as app_config
     from app.admin_config import ConfigState
 
-    env_path = Path(os.environ["TTS_DOTENV_PATH"])
+    env_path = Path(os.environ["DOTENV_PATH"])
     _ = env_path.write_text("", encoding="utf-8")
     res = client.get("/api/admin/config")
     assert res.status_code == 200
@@ -353,4 +353,4 @@ def test_admin_saves_newsline_restart_toggle(client: TestClient) -> None:
     assert body.current.values.newsline_restart_after_process is True
     assert app_config.NEWSLINE_RESTART_AFTER_PROCESS is True
     text = env_path.read_text(encoding="utf-8")
-    assert "TTS_NEWSLINE_RESTART_AFTER_PROCESS=true" in text
+    assert "NEWSLINE_RESTART_AFTER_PROCESS=true" in text

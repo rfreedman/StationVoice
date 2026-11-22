@@ -79,7 +79,7 @@ After `./serve.sh` is frozen, restarts should not modify `uv.lock` again; confir
 Deploy and any manual restart start a **new process**. Nothing below is written to disk:
 
 - **Busy retries** — APScheduler `defer:` jobs and in-flight manual-trigger retries are dropped. A slot whose fire time has already passed is **not** played late after restart (see startup behavior below).
-- **Login rate limit** — Failed sign-in counters (`429` after `TTS_LOGIN_MAX_FAILURES` failures, default five, per username from the same client within `TTS_LOGIN_WINDOW_SECONDS`, default 300 seconds) reset. Legitimate sessions in cookies may still work until they expire.
+- **Login rate limit** — Failed sign-in counters (`429` after `LOGIN_MAX_FAILURES` failures, default five, per username from the same client within `LOGIN_WINDOW_SECONDS`, default 300 seconds) reset. Legitimate sessions in cookies may still work until they expire.
 
 After an outage or restart, use **Trigger now** or wait for the next slot if something did not air; check logs for deferred fires that will not run until you trigger again.
 

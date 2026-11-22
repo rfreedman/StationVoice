@@ -120,18 +120,18 @@ class DraRadio:
             raise DraHardwareMissingError(
                 "No CM119A HID interface found. Is the DRA-36M plugged in and accessible? "
                 + "Starting in stub mode until the adapter is attached; use Admin → Restart "
-                + "after plugging it in (or set TTS_RADIO_BACKEND=stub in .env for intentional stub)."
+                + "after plugging it in (or set RADIO_BACKEND=stub in .env for intentional stub)."
             )
         if DRA_HID_PATH_BYTES is not None:
             entries = [e for e in entries if e.get("path") == DRA_HID_PATH_BYTES]
             if not entries:
                 paths = [e.get("path", b"").hex() for e in list_cm119_hid_entries(hid)]
                 raise RuntimeError(
-                    "TTS_DRA_HID_PATH did not match any CM119 HID path. "
+                    "DRA_HID_PATH did not match any CM119 HID path. "
                     + f"Available paths (hex): {paths}. "
                     + "Run: python scripts/dra36m_check.py probe"
                 )
-            log.info("DRA HID pinned via TTS_DRA_HID_PATH (%s)", DRA_HID_PATH_BYTES.hex())
+            log.info("DRA HID pinned via DRA_HID_PATH (%s)", DRA_HID_PATH_BYTES.hex())
 
         from app.dra_portaudio import resolve_dra_audio_indices
 
@@ -167,9 +167,9 @@ class DraRadio:
             log.warning(
                 "DRA HID count (%s) != PortAudio device count (%s); using %s pair(s). "
                 + "Two radios on one Linux host need two CM119 HID interfaces "
-                + "(python scripts/dra36m_check.py probe). Unset TTS_DRA_HID_PATH when both "
+                + "(python scripts/dra36m_check.py probe). Unset DRA_HID_PATH when both "
                 + "DRAs are connected; check udev/plugdev (docs/final-hardware/README.md). "
-                + "Optional: TTS_DRA_AUDIO_DEVICES and fixed USB ports.",
+                + "Optional: DRA_AUDIO_DEVICES and fixed USB ports.",
                 n_hid,
                 n_audio,
                 count,
@@ -189,17 +189,17 @@ class DraRadio:
             pinned = [e for e in entries if e.get("path") == DRA_HID_PATH_BYTES]
             if pinned:
                 return pinned
-            # USB replug assigns a new HID path; stale TTS_DRA_HID_PATH must not block recovery.
+            # USB replug assigns a new HID path; stale DRA_HID_PATH must not block recovery.
             if len(self._hid_adapters) == 1 and len(entries) == 1:
                 log.warning(
-                    "TTS_DRA_HID_PATH (%s) stale after USB replug; using %s",
+                    "DRA_HID_PATH (%s) stale after USB replug; using %s",
                     DRA_HID_PATH_BYTES.hex(),
                     entries[0]["path"].hex(),
                 )
                 return entries
             if len(self._hid_adapters) == 1 and entries:
                 log.warning(
-                    "TTS_DRA_HID_PATH (%s) stale; using first CM119 HID %s",
+                    "DRA_HID_PATH (%s) stale; using first CM119 HID %s",
                     DRA_HID_PATH_BYTES.hex(),
                     entries[0]["path"].hex(),
                 )

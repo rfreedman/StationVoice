@@ -23,8 +23,8 @@ _notifier: AdminNotifier | None = None
 
 
 def plugins_dir() -> Path:
-    """Directory scanned for drop-in notifier plugins (``TTS_PLUGINS_DIR`` or ``plugins/``)."""
-    override = os.environ.get("TTS_PLUGINS_DIR", "").strip()
+    """Directory scanned for drop-in notifier plugins (``PLUGINS_DIR`` or ``plugins/``)."""
+    override = os.environ.get("PLUGINS_DIR", "").strip()
     if override:
         return Path(override).expanduser()
     return ROOT_DIR / "plugins"

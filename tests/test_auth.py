@@ -209,28 +209,28 @@ def test_login_limit_env_invalid_falls_back(monkeypatch: pytest.MonkeyPatch, cap
 
     from app.config import login_max_failures, login_window_seconds
 
-    monkeypatch.delenv("TTS_LOGIN_MAX_FAILURES", raising=False)
-    monkeypatch.delenv("TTS_LOGIN_WINDOW_SECONDS", raising=False)
+    monkeypatch.delenv("LOGIN_MAX_FAILURES", raising=False)
+    monkeypatch.delenv("LOGIN_WINDOW_SECONDS", raising=False)
     assert login_max_failures() == 5
     assert login_window_seconds() == 300.0
 
-    monkeypatch.setenv("TTS_LOGIN_MAX_FAILURES", "0")
-    monkeypatch.setenv("TTS_LOGIN_WINDOW_SECONDS", "nope")
+    monkeypatch.setenv("LOGIN_MAX_FAILURES", "0")
+    monkeypatch.setenv("LOGIN_WINDOW_SECONDS", "nope")
     with caplog.at_level(logging.WARNING, logger="app.config"):
         assert login_max_failures() == 5
         assert login_window_seconds() == 300.0
-    assert "TTS_LOGIN_MAX_FAILURES" in caplog.text
-    assert "TTS_LOGIN_WINDOW_SECONDS" in caplog.text
+    assert "LOGIN_MAX_FAILURES" in caplog.text
+    assert "LOGIN_WINDOW_SECONDS" in caplog.text
 
 
 def test_login_rate_limit_follows_env(users: UserStore, admin_user: User, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A limiter built the same way as startup honors TTS_LOGIN_* (issue #14)."""
+    """A limiter built the same way as startup honors LOGIN_* (issue #14)."""
     _ = users
     _ = admin_user
     from app.auth import configured_login_limiter
 
-    monkeypatch.setenv("TTS_LOGIN_MAX_FAILURES", "2")
-    monkeypatch.setenv("TTS_LOGIN_WINDOW_SECONDS", "90")
+    monkeypatch.setenv("LOGIN_MAX_FAILURES", "2")
+    monkeypatch.setenv("LOGIN_WINDOW_SECONDS", "90")
     monkeypatch.setattr("app.routes.auth.login_limiter", configured_login_limiter())
     with TestClient(app) as client:
         for _ in range(2):

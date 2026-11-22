@@ -57,7 +57,7 @@ def ensure_restart_possible(*, unit: str | None = None) -> str:
     name = (unit or systemd_unit_name()).strip()
     if not name or name.endswith(".service"):
         raise RestartUnavailableError(
-            "TTS_SYSTEMD_UNIT must be the bare unit name (e.g. dvra-announcements), "
+            "SYSTEMD_UNIT must be the bare unit name (e.g. dvra-announcements), "
             + "without a .service suffix."
         )
     if shutil.which("systemctl") is None:

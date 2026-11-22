@@ -63,7 +63,7 @@ class LoginRateLimiter:
 
 
 def configured_login_limiter() -> LoginRateLimiter:
-    """Build a limiter from ``TTS_LOGIN_MAX_FAILURES`` / ``TTS_LOGIN_WINDOW_SECONDS``."""
+    """Build a limiter from ``LOGIN_MAX_FAILURES`` / ``LOGIN_WINDOW_SECONDS``."""
     return LoginRateLimiter(
         max_failures=login_max_failures(),
         window_seconds=login_window_seconds(),

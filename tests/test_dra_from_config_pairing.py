@@ -62,4 +62,4 @@ def test_from_config_mismatch_warning_mentions_unset_hid_path(monkeypatch: pytes
     assert radio.audio_device_indices == [3]
     text = caplog.text
     assert "dual-NUC" not in text.casefold()
-    assert "Unset TTS_DRA_HID_PATH" in text
+    assert "Unset DRA_HID_PATH" in text

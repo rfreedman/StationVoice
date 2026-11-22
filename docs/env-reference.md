@@ -10,44 +10,44 @@
 | `TTS_PIPER_QUALITIES` | `all` | `all` = list/preload every `voices/piper/*.onnx`; `medium` = only `*-medium` |
 | `TTS_SPEED` | `1.0` | Speaking rate (`< 1` is slower) |
 | `TTS_SENTENCE_PAUSE` | `0.25` | Silence between sentences, in seconds |
-| `TTS_HOST` / `TTS_PORT` | `0.0.0.0` / `8000` | Bind address |
-| `TTS_TIMEZONE` | `America/New_York` | Clock for schedules |
-| `TTS_DATA_DIR` | `./data` | Saved announcements JSON |
-| `TTS_USERS_PATH` | `$TTS_DATA_DIR/users.json` | Web UI users |
-| `TTS_SESSION_SECRET` | auto (`data/.session_secret`) | Signs login session cookies |
-| `TTS_SESSION_IDLE_SECONDS` | `1800` (30 min) | Log out after this much idle time (the UI's automatic 15 s refreshes do not count as activity) |
-| `TTS_LOGIN_MAX_FAILURES` | `5` | Failed sign-ins for the same username from the same client before `429` |
-| `TTS_LOGIN_WINDOW_SECONDS` | `300` | How long those failures stay counted, in seconds |
+| `HOST` / `PORT` | `0.0.0.0` / `8000` | Bind address |
+| `TIMEZONE` | `America/New_York` | Clock for schedules |
+| `DATA_DIR` | `./data` | Saved announcements JSON |
+| `USERS_PATH` | `$DATA_DIR/users.json` | Web UI users |
+| `SESSION_SECRET` | auto (`data/.session_secret`) | Signs login session cookies |
+| `SESSION_IDLE_SECONDS` | `1800` (30 min) | Log out after this much idle time (the UI's automatic 15 s refreshes do not count as activity) |
+| `LOGIN_MAX_FAILURES` | `5` | Failed sign-ins for the same username from the same client before `429` |
+| `LOGIN_WINDOW_SECONDS` | `300` | How long those failures stay counted, in seconds |
 | `TTS_PCM_CACHE_DIR` | `./data/pcm` | Pre-rendered announcement PCM (written on save and at startup; scheduled fires play this) |
-| `TTS_LOG_DIR` | `./data/logs` | Daily rotating `announcements.log` (app + uvicorn server) and filtered `access.log` (page/asset/major API hits; home polls/health/SSE omitted). Access is file-only (not stdout/stderr). Kept 30 days (`TTS_LOG_KEEP_DAYS`). |
-| `TTS_PTT_LEAD_SECONDS` | `0.4` | Delay after PTT before audio (on **dra**, silence is streamed on USB; on **stub**, host sleep) |
-| `TTS_RADIO_BACKEND` | `stub` | `stub` = in-memory PTT/COS. A **DRA** (Digital Radio Adapter) is the USB box between the computer and one radio. This project uses the [Masters Communications **DRA-36M**](https://www.masterscommunications.com/products/radio-adapter/dra/dra36m.html). It plays the announcement into the radio and keys the transmitter. `dra` means the app is using those adapters (requires `hidapi`). If `dra` is set but no DRA is attached, startup falls back to stub with one admin alert. Confirm the active mode in the startup log: `(radio mode: stub)` or `(radio mode: dra)`. On **stub**, triggers still use host PortAudio — headless Linux needs a Pulse/PipeWire session (optional null sink); see [Stub backend on headless Linux](linux-host.md#stub-backend-on-headless-linux) |
-| `TTS_SYSTEMD_UNIT` | `dvra-announcements` | Bare systemd unit name (no `.service` suffix) used by Admin → Restart on the Linux host |
-| `TTS_DRA_USB_CHANNEL` | `left` | USB channel for DATA IN (**JU3=L** → `left`) |
-| `TTS_DRA_COS_LINE` | `vol_dn` | HID COS decode (`vol_dn` or `allstar3`) |
-| `TTS_DRA_COS_ACTIVE_HIGH` | `false` | Set `true` if idle/busy labels swap on `monitor` |
-| `TTS_DRA_AUDIO_DEVICES` | *(auto)* | Optional comma list of PortAudio substrings or indices (**one per DRA**). On the Linux host with **two radios**, use fixed USB ports; set this only if auto-detection order is wrong |
-| `TTS_DRA_CLEAR_SECONDS` | `0` | Continuous COS idle required after synthesize, before PTT (`10` matches bench voice-gate) |
-| `TTS_DRA_CLEAR_POLL_SECONDS` | `0.25` | COS poll interval during clear wait and background idle tracking |
-| `TTS_DRA_FINAL_CHECK_SECONDS` | `1.0` | After the clear hold, keep reading COS this long before PTT; any busy read cancels (catches a key-up as the UI countdown ends). Only applies when `TTS_DRA_CLEAR_SECONDS` > 0 |
-| `TTS_DRA_COS_TRACK` | `true` | Background COS polls while the scheduler runs (idle before Trigger now counts toward clear) |
-| `TTS_DRA_HID_PATH` | *(auto)* | Hex HID path to pin **one** CM119 (a **single** DRA on the Linux host). **Omit when two DRAs are connected** — each radio needs its own CM119 HID |
-| `TTS_DRA_ALSA_UNMUTE` | `true` | Linux **dra** only: run `amixer` to unmute CM119 **Speaker** at startup (see [Linux host notes](linux-host.md)). Set `false` to skip |
-| `TTS_DRA_ALSA_SPEAKER_LEVEL` | `100%` | ALSA **Speaker** level passed to `amixer sset` when unmuting |
-| `TTS_BUSY_RETRY_SECONDS` | `5` | Retry interval while the channel is busy; also the value pre-filled for a **new announcement** in the UI |
-| `TTS_BUSY_GIVE_UP_SECONDS` | `45` | Drop this fire if still busy after this long; also pre-filled for a new announcement |
-| `TTS_SCHEDULER_MAX_WAIT_SECONDS` | `5` | How long the scheduler may sleep before checking the clock again |
-| `TTS_NEWS_CHECK_START` | `12:00` | Thursday start of the Amateur Radio Newsline check window (`HH:MM`, station timezone) |
-| `TTS_NEWS_CHECK_STOP` | `18:00` | Friday end of that window (`HH:MM`) |
-| `TTS_NEWS_CHECK_INTERVAL_HOURS` | `1` | Hours between checks inside the window (`0.5` is every 30 minutes; `0.5`–`24`) |
+| `LOG_DIR` | `./data/logs` | Daily rotating `announcements.log` (app + uvicorn server) and filtered `access.log` (page/asset/major API hits; home polls/health/SSE omitted). Access is file-only (not stdout/stderr). Kept 30 days (`LOG_KEEP_DAYS`). |
+| `PTT_LEAD_SECONDS` | `0.4` | Delay after PTT before audio (on **dra**, silence is streamed on USB; on **stub**, host sleep) |
+| `RADIO_BACKEND` | `stub` | `stub` = in-memory PTT/COS. A **DRA** (Digital Radio Adapter) is the USB box between the computer and one radio. This project uses the [Masters Communications **DRA-36M**](https://www.masterscommunications.com/products/radio-adapter/dra/dra36m.html). It plays the announcement into the radio and keys the transmitter. `dra` means the app is using those adapters (requires `hidapi`). If `dra` is set but no DRA is attached, startup falls back to stub with one admin alert. Confirm the active mode in the startup log: `(radio mode: stub)` or `(radio mode: dra)`. On **stub**, triggers still use host PortAudio — headless Linux needs a Pulse/PipeWire session (optional null sink); see [Stub backend on headless Linux](linux-host.md#stub-backend-on-headless-linux) |
+| `SYSTEMD_UNIT` | `dvra-announcements` | Bare systemd unit name (no `.service` suffix) used by Admin → Restart on the Linux host |
+| `DRA_USB_CHANNEL` | `left` | USB channel for DATA IN (**JU3=L** → `left`) |
+| `DRA_COS_LINE` | `vol_dn` | HID COS decode (`vol_dn` or `allstar3`) |
+| `DRA_COS_ACTIVE_HIGH` | `false` | Set `true` if idle/busy labels swap on `monitor` |
+| `DRA_AUDIO_DEVICES` | *(auto)* | Optional comma list of PortAudio substrings or indices (**one per DRA**). On the Linux host with **two radios**, use fixed USB ports; set this only if auto-detection order is wrong |
+| `DRA_CLEAR_SECONDS` | `0` | Continuous COS idle required after synthesize, before PTT (`10` matches bench voice-gate) |
+| `DRA_CLEAR_POLL_SECONDS` | `0.25` | COS poll interval during clear wait and background idle tracking |
+| `DRA_FINAL_CHECK_SECONDS` | `1.0` | After the clear hold, keep reading COS this long before PTT; any busy read cancels (catches a key-up as the UI countdown ends). Only applies when `DRA_CLEAR_SECONDS` > 0 |
+| `DRA_COS_TRACK` | `true` | Background COS polls while the scheduler runs (idle before Trigger now counts toward clear) |
+| `DRA_HID_PATH` | *(auto)* | Hex HID path to pin **one** CM119 (a **single** DRA on the Linux host). **Omit when two DRAs are connected** — each radio needs its own CM119 HID |
+| `DRA_ALSA_UNMUTE` | `true` | Linux **dra** only: run `amixer` to unmute CM119 **Speaker** at startup (see [Linux host notes](linux-host.md)). Set `false` to skip |
+| `DRA_ALSA_SPEAKER_LEVEL` | `100%` | ALSA **Speaker** level passed to `amixer sset` when unmuting |
+| `BUSY_RETRY_SECONDS` | `5` | Retry interval while the channel is busy; also the value pre-filled for a **new announcement** in the UI |
+| `BUSY_GIVE_UP_SECONDS` | `45` | Drop this fire if still busy after this long; also pre-filled for a new announcement |
+| `SCHEDULER_MAX_WAIT_SECONDS` | `5` | How long the scheduler may sleep before checking the clock again |
+| `NEWS_CHECK_START` | `12:00` | Thursday start of the Amateur Radio Newsline check window (`HH:MM`, station timezone) |
+| `NEWS_CHECK_STOP` | `18:00` | Friday end of that window (`HH:MM`) |
+| `NEWS_CHECK_INTERVAL_HOURS` | `1` | Hours between checks inside the window (`0.5` is every 30 minutes; `0.5`–`24`) |
 | `ARNEWSLINE_QA_WORKERS` | `min(4, CPUs)` | Parallel Whisper workers for slice QA during a Newsline split. Set `1` for sequential ASR (cooler, slower) |
 | `ARNEWSLINE_EXPORT_WORKERS` | `4` | Parallel ffmpeg story exports during a split. Set `1` to encode one file at a time |
 | `ARNEWSLINE_CPU_THREADS` | *(all cores)* | Cap PyTorch / CTranslate2 / OpenMP threads used by a split. Example: `2` on a small NUC that runs hot |
-| `TTS_REPEATER_TIMEOUT_SECONDS` | `180` | Repeater time limit for one transmission (`30`–`600`). Spoken audio, uploaded MP3 announcements, and Newsline story files must finish 2 seconds sooner |
-| `TTS_AUDIO_ANNOUNCEMENT_MAX_BYTES` | `5242880` (5 MiB) | Max size for an uploaded MP3 library announcement (`65536`–`20971520`) |
-| `TTS_NEWSLINE_RESTART_AFTER_PROCESS` | `false` | After a **scheduled** Newsline check starts splitting a new report, restart the systemd unit when the check finishes (success or failure). Skipped with an admin alert if a transmission is in progress. Manual **Check for Newsline now** asks after download (Stop / continue with restart / continue without); unanswered choices time out after 10 minutes as Stop |
-| `TTS_SLOT_HALF_WINDOW_MINUTES` | `10` | How far an overlay may shift from its slot center |
-| `TTS_TRIGGER_NOW` | `false` | Dev only: show **Trigger now** on schedule rows (does not change Last or the next slot) |
+| `REPEATER_TIMEOUT_SECONDS` | `180` | Repeater time limit for one transmission (`30`–`600`). Spoken audio, uploaded MP3 announcements, and Newsline story files must finish 2 seconds sooner |
+| `AUDIO_ANNOUNCEMENT_MAX_BYTES` | `5242880` (5 MiB) | Max size for an uploaded MP3 library announcement (`65536`–`20971520`) |
+| `NEWSLINE_RESTART_AFTER_PROCESS` | `false` | After a **scheduled** Newsline check starts splitting a new report, restart the systemd unit when the check finishes (success or failure). Skipped with an admin alert if a transmission is in progress. Manual **Check for Newsline now** asks after download (Stop / continue with restart / continue without); unanswered choices time out after 10 minutes as Stop |
+| `SLOT_HALF_WINDOW_MINUTES` | `10` | How far an overlay may shift from its slot center |
+| `TRIGGER_NOW` | `false` | Dev only: show **Trigger now** on schedule rows (does not change Last or the next slot) |
 
 ### Station identity
 
@@ -61,7 +61,7 @@ Startup fails if `STATION_CALL` or `STATION_NAME` is missing or blank. Set them 
 
 ### Defer timing (fixed in code, not env vars)
 
-These complement `TTS_BUSY_RETRY_SECONDS` on each announcement and `TTS_DRA_CLEAR_SECONDS` / `TTS_DRA_CLEAR_POLL_SECONDS` for COS. They are **not** configurable today; names live in `app/fire.py` and `app/scheduler.py` if you need to tune behavior in a fork.
+These complement `BUSY_RETRY_SECONDS` on each announcement and `DRA_CLEAR_SECONDS` / `DRA_CLEAR_POLL_SECONDS` for COS. They are **not** configurable today; names live in `app/fire.py` and `app/scheduler.py` if you need to tune behavior in a fork.
 
 | Constant | Default | Role |
 | --- | --- | --- |
@@ -134,7 +134,7 @@ If the plugin is in `plugins/` but its Python packages or send credentials are m
 | `EMAIL_FROM_NAME` | `Repeater Announcements` | From display name |
 | `ADMIN_EMAILS` | *(required to send)* | Comma-separated admin recipients (editable in Admin UI when a plugin is present) |
 | `ADMIN_EMAIL_NOTIFICATIONS` | `1` | `1`/`0` (or true/false): send admin emails when a plugin is present. Missing means on. Not part of config history / revert. |
-| `TTS_PLUGINS_DIR` | `<repo>/plugins` | Override plugins directory (tests) |
+| `PLUGINS_DIR` | `<repo>/plugins` | Override plugins directory (tests) |
 
 Duplicate alerts with the same debounce key are suppressed for 15 minutes.
 

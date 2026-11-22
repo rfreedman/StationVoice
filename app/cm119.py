@@ -60,7 +60,7 @@ def ensure_hid_module() -> HidModule:
         import hid  # type: ignore[import-untyped]
     except ImportError as exc:
         raise RuntimeError(
-            "hidapi is required for TTS_RADIO_BACKEND=dra. Install: uv sync "
+            "hidapi is required for RADIO_BACKEND=dra. Install: uv sync "
             + "(pip deploy: pip install -r requirements.txt)"
         ) from exc
     if not hasattr(hid, "device"):

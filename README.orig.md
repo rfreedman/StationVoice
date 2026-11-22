@@ -10,11 +10,11 @@ The app also plays Amateur Radio Newsline audio.
 A Python FastAPI web UI manages the announcement library and schedules. 
 
 A **DRA** (Digital Radio Adapter) is the interface box between the computer and one radio. 
-This project uses the [Masters Communications **DRA-36M**](https://www.masterscommunications.com/products/radio-adapter/dra/dra36m.html). It plays the announcement into the radio and keys the transmitter. The setting `TTS_RADIO_BACKEND=dra` means the app is using those adapters. Audio is generated and played **in memory** — nothing is written as WAV/MP3 for on-air use.
+This project uses the [Masters Communications **DRA-36M**](https://www.masterscommunications.com/products/radio-adapter/dra/dra36m.html). It plays the announcement into the radio and keys the transmitter. The setting `RADIO_BACKEND=dra` means the app is using those adapters. Audio is generated and played **in memory** — nothing is written as WAV/MP3 for on-air use.
 
-Development and testing **without radios** is done on macOS. That work was done on a MacBook Pro M3 running macOS Tahoe. Radios have not been tried on macOS; use `TTS_RADIO_BACKEND=stub` there.
+Development and testing **without radios** is done on macOS. That work was done on a MacBook Pro M3 running macOS Tahoe. Radios have not been tried on macOS; use `RADIO_BACKEND=stub` there.
 
-Development and production **with radios** run on a 64-bit Linux computer. That work has been done only on Ubuntu 26.04.1 LTS, including two DRAs transmitting together. Use `TTS_RADIO_BACKEND=dra` on the Linux host.
+Development and production **with radios** run on a 64-bit Linux computer. That work has been done only on Ubuntu 26.04.1 LTS, including two DRAs transmitting together. Use `RADIO_BACKEND=dra` on the Linux host.
 
 ## Requirements
 
@@ -67,7 +67,7 @@ Commands include `speak`, `serve`, `voices`, `download` (Piper voices), and `use
 
 ```bash
 uv run basedpyright   # static types for app/
-uv run pytest -q      # suite sets TTS_SKIP_DOTENV=1 so a local .env cannot affect results
+uv run pytest -q      # suite sets SKIP_DOTENV=1 so a local .env cannot affect results
 ```
 
 CI runs pytest + basedpyright on `main`. Optional e2e: `uv run pytest -m e2e` (install Chromium once). Linux-only paths before push: `./scripts/ci-local.sh`.

@@ -45,7 +45,7 @@ APScheduler with a shifted/frozen clock before fixing; the new tests in
 - **Test:** `test_partial_ptt_failure_unkeys_radios_already_keyed`.
 
 ### 6. Busy-retry interval ignored when the clear hold is off
-- **Symptom:** with `TTS_DRA_CLEAR_SECONDS=0` (the default) retries happened every ≤1 s regardless of the announcement's `busy_retry_seconds`.
+- **Symptom:** with `DRA_CLEAR_SECONDS=0` (the default) retries happened every ≤1 s regardless of the announcement's `busy_retry_seconds`.
 - **Cause:** `defer_retry_delay()` treated a disabled clear hold as "already met" and shortened the delay.
 - **Fix:** `app/fire.py` only shortens the delay when a clear hold is enabled *and* met.
 - **Test:** `test_full_retry_when_clear_hold_disabled`; the existing `test_busy_then_clear_defers_without_writing_last_run` (which had been failing without a `.env`) passes again.
@@ -54,7 +54,7 @@ APScheduler with a shifted/frozen clock before fixing; the new tests in
 - **Symptom:** 3 of 139 tests failed without a `.env`, 2 with the developer's `.env` — results depended on the machine.
 - **Causes and fixes:**
   - Commit `a5f6438` made server startup call `init_radio_at_startup()`, replacing the test's `StubRadio`. `tests/conftest.py` now patches it out (autouse `keep_test_radio`).
-  - `app/config.py` loaded the developer's `.env` during tests. It now skips `.env` when `TTS_SKIP_DOTENV=1`, which `conftest.py` sets before importing the app.
+  - `app/config.py` loaded the developer's `.env` during tests. It now skips `.env` when `SKIP_DOTENV=1`, which `conftest.py` sets before importing the app.
   - `GET /api/schedules` sampled the radio (`channel_busy()`) on every poll. `pending_manual_triggers()` now touches the radio only when a manual trigger is pending or in progress.
 - **Test:** `test_schedules_poll_does_not_sample_radio_when_nothing_pending`.
 
@@ -87,7 +87,7 @@ APScheduler with a shifted/frozen clock before fixing; the new tests in
 - **Causes:**
   - The "before PTT" check used `channel_blocks_transmit`, which **skips reading COS** once idle credit has reached the clear hold, so there was no real final check. A test (`test_fire_transmits_when_clear_hold_met_despite_busy_sample`) required this, based on the same "busy samples are flaky" assumption as the debounce in error 11.
   - The UI countdown rounds up and refreshes once a second, so "0:01" can mean the server is about to key, or already has. Not confirmed with logs; the user chose to fix it on that assumption.
-- **Fix:** `app/fire.py` `_confirm_clear_before_ptt` reads COS directly, never trusting idle credit. With a clear hold it keeps reading for `TTS_DRA_FINAL_CHECK_SECONDS` (default 1.0 s, one read per poll interval) before PTT. Any busy read defers or drops the fire as a busy defer. Effect: the real hold is the clear hold plus up to 1 s; the UI shows "Starting…" during that last part.
+- **Fix:** `app/fire.py` `_confirm_clear_before_ptt` reads COS directly, never trusting idle credit. With a clear hold it keeps reading for `DRA_FINAL_CHECK_SECONDS` (default 1.0 s, one read per poll interval) before PTT. Any busy read defers or drops the fire as a busy defer. Effect: the real hold is the clear hold plus up to 1 s; the UI shows "Starting…" during that last part.
 - **Tests:** `tests/test_clear_hold_transmit.py` (fresh busy read defers despite idle credit; key-up mid-window defers; the window reads for its full length).
 
 ### 13. "Starting in mm:ss" flashed when a busy-deferred trigger reached the end of its hold
@@ -106,16 +106,16 @@ APScheduler with a shifted/frozen clock before fixing; the new tests in
 | `/api/speak` claimed to stream but generated everything first | New `EngineRegistry.stream_synthesize()`; `/api/speak` uses it. The voice lock in Piper, a text-to-speech (TTS) library, is now held per sentence, never across a `yield`, so a slow client cannot block scheduled synthesis (`test_piper_voice_lock_is_not_held_while_consumer_waits`). |
 | Saving an announcement rendered PCM inside the request, under one global lock shared with fires | `warm_announcement_in_background()` renders on a daemon thread; `app/pcm_cache.py` uses one lock per announcement (`test_saving_announcement_does_not_wait_for_pcm_render`). |
 | `GET /api/schedules` rescheduled APScheduler jobs | The manual-defer "nudge" now runs only from the background COS poll thread (`app/cos_track.py`), not from HTTP handlers. |
-| Frontend new-announcement defaults (retry 30 s / give-up 300 s / speed 0.8 / hard-coded voice) disagreed with backend and README (5 / 45 / 1.0) | `/api/voices` returns the server defaults; `static/app.js` `newAnnouncementDefaults()` uses them. **Behavior change:** new announcements now pre-fill 5 s / 45 s / speed 1.0 unless `TTS_BUSY_RETRY_SECONDS`, `TTS_BUSY_GIVE_UP_SECONDS`, `TTS_SPEED` are set. Existing announcements are unchanged. |
+| Frontend new-announcement defaults (retry 30 s / give-up 300 s / speed 0.8 / hard-coded voice) disagreed with backend and README (5 / 45 / 1.0) | `/api/voices` returns the server defaults; `static/app.js` `newAnnouncementDefaults()` uses them. **Behavior change:** new announcements now pre-fill 5 s / 45 s / speed 1.0 unless `BUSY_RETRY_SECONDS`, `BUSY_GIVE_UP_SECONDS`, `TTS_SPEED` are set. Existing announcements are unchanged. |
 | Hard-coded `45` and grace literals in the scheduler | `DEFAULT_BUSY_GIVE_UP_SECONDS`, `SLOT_MISFIRE_GRACE_SECONDS`, `DEFER_MISFIRE_GRACE_SECONDS`. |
 | Scheduled-fire and manual-trigger setup duplicated; `pending_manual_triggers()` patched rows in place | Shared `_fire_window()`, `_add_defer_job()`, `_parse_local()`, `_manual_schedule_id()`; `pending_manual_triggers()` rewritten as one loop. Redundant `sync_jobs()` calls in the manual path removed (manual triggers never change slot jobs). |
 | Three time-zone sources used inconsistently | Slot math uses the document's `Settings.timezone` only (`_countdown_occupies` uses the slot's own zone; `schedule_warning` uses the document zone; scheduler timestamps use the store zone). `Schedule.timezone` is kept for stored-data compatibility and commented as unused. |
 | DST "duplicate slot keys" (raised in the review) | **Correction: not a bug.** Verified: keys never collide. The repeated 01:00–01:59 hour gets slots only on its first pass; spring-forward skips 02:00/02:30. Locked in by `test_dst_transitions_never_produce_duplicate_slot_keys`. |
 | `scripts/dra36m_check.py` duplicated 7 helpers from `app/cm119.py` / `app/dra_playback.py` | The script imports them (`sys.path` set once at the top); only its legacy `dra_mac` COS mode stays local. `cmd_ptt` no longer prints the HID byte count (app helper returns `None`). |
-| `TTS_DRA_COS_LINE` not validated | `app/config.py` warns and falls back to `vol_dn` for anything other than `vol_dn`, `vol_up`, `allstar3`. |
+| `DRA_COS_LINE` not validated | `app/config.py` warns and falls back to `vol_dn` for anything other than `vol_dn`, `vol_up`, `allstar3`. |
 | `logging.basicConfig` in the lifespan (no-op under uvicorn) | Removed. |
 | FastAPI title "TTS Stream" | Renamed "DVRA Repeater Announcements". |
-| No login rate limiting | `LoginRateLimiter` in `app/auth.py`: default 5 failures per client+username in 300 s (`TTS_LOGIN_MAX_FAILURES`, `TTS_LOGIN_WINDOW_SECONDS`) → `429` with `Retry-After` (`test_repeated_failed_logins_are_rate_limited`). In memory; resets on restart. |
+| No login rate limiting | `LoginRateLimiter` in `app/auth.py`: default 5 failures per client+username in 300 s (`LOGIN_MAX_FAILURES`, `LOGIN_WINDOW_SECONDS`) → `429` with `Retry-After` (`test_repeated_failed_logins_are_rate_limited`). In memory; resets on restart. |
 | Small items | Unused `Engine.blurb` removed; `RunningOnKeyRadio` moved out of `handle_fire` to module level; redundant `locked()` check before releasing the playback lock removed; unused imports cleaned in app, scripts, and tests. |
 | Trigger now stuck on “Starting now…” after DRA unplug/replug | ALSA card number can stay the same while **HID USB paths** change; stale HID handles made COS reads indeterminate → gating treated as busy forever. Background COS poll skipped `refresh_cos` during manual inflight, so UI idle credit from before replug still showed clear hold met. **Fix:** `sync_hid_adapters_if_replugged()`, unified `apply_cm119_replug_recovery()` (HID + ALSA), replug check at start of `wait_for_transmit_clear` / `refresh_cos`, always refresh COS in `cos_track`. Tests: `tests/test_dra_usb_replug.py`. |
 | USB unplug spammed HID warm-open tracebacks | Background COS poll kept opening stale paths while no CM119 was enumerated. **Fix:** `note_usb_hid_presence()` / `_usb_hid_absent` — one warning on disconnect, skip warm-open/COS reads until reconnect, log once when HID returns. |

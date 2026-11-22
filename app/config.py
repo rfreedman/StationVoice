@@ -73,8 +73,8 @@ def _require_env(name: str) -> str:
     return value
 
 
-# Tests set TTS_SKIP_DOTENV=1 so a developer's .env cannot change their results.
-if not _env_flag("TTS_SKIP_DOTENV"):
+# Tests set SKIP_DOTENV=1 so a developer's .env cannot change their results.
+if not _env_flag("SKIP_DOTENV"):
     _load_dotenv(ROOT_DIR / ".env")
     # Ops secrets (Bird, R2, ADMIN_EMAILS). Shell env still wins over file values.
     _load_dotenv(ROOT_DIR / ".env.secrets")
@@ -103,9 +103,9 @@ def _piper_qualities() -> str:
 
 PIPER_QUALITIES = _piper_qualities()
 
-HOST = os.environ.get("TTS_HOST", "0.0.0.0")
-PORT = int(os.environ.get("TTS_PORT", "8000"))
-MAX_TEXT_CHARS = int(os.environ.get("TTS_MAX_TEXT_CHARS", "5000"))
+HOST = os.environ.get("HOST", "0.0.0.0")
+PORT = int(os.environ.get("PORT", "8000"))
+MAX_TEXT_CHARS = int(os.environ.get("MAX_TEXT_CHARS", "5000"))
 # Hard ceiling for stored announcement text. The live limit is MAX_TEXT_CHARS.
 TEXT_CHARS_CEILING = 20_000
 DEFAULT_SPEED = float(os.environ.get("TTS_SPEED", "1.0"))
@@ -117,7 +117,7 @@ MAX_SENTENCE_PAUSE = 2.0
 MAX_BUSY_RETRY_SECONDS = 120
 MAX_BUSY_GIVE_UP_SECONDS = 600
 
-DATA_DIR = Path(os.environ.get("TTS_DATA_DIR", ROOT_DIR / "data")).expanduser()
+DATA_DIR = Path(os.environ.get("DATA_DIR", ROOT_DIR / "data")).expanduser()
 NEWSLINE_DIR = DATA_DIR / "arnewsline"
 ANNOUNCEMENT_AUDIO_DIR = DATA_DIR / "announcement_audio"
 DEFAULT_REPEATER_TIMEOUT_SECONDS = 180
@@ -133,17 +133,17 @@ MIN_AUDIO_ANNOUNCEMENT_MAX_BYTES = 64 * 1024
 MAX_AUDIO_ANNOUNCEMENT_MAX_BYTES = 20 * 1024 * 1024
 ANNOUNCEMENTS_PATH = DATA_DIR / "announcements.json"
 PHONEMES_PATH = DATA_DIR / "phonemes.json"
-USERS_PATH = Path(os.environ.get("TTS_USERS_PATH", DATA_DIR / "users.json")).expanduser()
+USERS_PATH = Path(os.environ.get("USERS_PATH", DATA_DIR / "users.json")).expanduser()
 SESSION_SECRET_PATH = DATA_DIR / ".session_secret"
 PCM_CACHE_DIR = Path(os.environ.get("TTS_PCM_CACHE_DIR", DATA_DIR / "pcm")).expanduser()
-LOG_DIR = Path(os.environ.get("TTS_LOG_DIR", DATA_DIR / "logs")).expanduser()
-LOG_KEEP_DAYS = int(os.environ.get("TTS_LOG_KEEP_DAYS", "30"))
-TIMEZONE = os.environ.get("TTS_TIMEZONE", "America/New_York")
-PTT_LEAD_SECONDS = float(os.environ.get("TTS_PTT_LEAD_SECONDS", "1"))
+LOG_DIR = Path(os.environ.get("LOG_DIR", DATA_DIR / "logs")).expanduser()
+LOG_KEEP_DAYS = int(os.environ.get("LOG_KEEP_DAYS", "30"))
+TIMEZONE = os.environ.get("TIMEZONE", "America/New_York")
+PTT_LEAD_SECONDS = float(os.environ.get("PTT_LEAD_SECONDS", "1"))
 
 
 def _audio_announcement_max_bytes() -> int:
-    raw = os.environ.get("TTS_AUDIO_ANNOUNCEMENT_MAX_BYTES", "").strip()
+    raw = os.environ.get("AUDIO_ANNOUNCEMENT_MAX_BYTES", "").strip()
     if not raw:
         return DEFAULT_AUDIO_ANNOUNCEMENT_MAX_BYTES
     try:
@@ -158,57 +158,57 @@ def _audio_announcement_max_bytes() -> int:
 AUDIO_ANNOUNCEMENT_MAX_BYTES = _audio_announcement_max_bytes()
 
 def radio_backend() -> str:
-    return os.environ.get("TTS_RADIO_BACKEND", "stub").strip().lower()
+    return os.environ.get("RADIO_BACKEND", "stub").strip().lower()
 
 
 def systemd_unit_name() -> str:
     """Bare systemd unit name for Admin → Restart (no ``.service`` suffix)."""
-    return os.environ.get("TTS_SYSTEMD_UNIT", "dvra-announcements").strip() or "dvra-announcements"
+    return os.environ.get("SYSTEMD_UNIT", "dvra-announcements").strip() or "dvra-announcements"
 
 
-DRA_USB_CHANNEL = os.environ.get("TTS_DRA_USB_CHANNEL", "left").strip().lower()
+DRA_USB_CHANNEL = os.environ.get("DRA_USB_CHANNEL", "left").strip().lower()
 if DRA_USB_CHANNEL not in {"left", "right", "mono"}:
     import logging
 
     logging.getLogger("app.config").warning(
-        "Invalid TTS_DRA_USB_CHANNEL=%r; using 'left'",
-        os.environ.get("TTS_DRA_USB_CHANNEL"),
+        "Invalid DRA_USB_CHANNEL=%r; using 'left'",
+        os.environ.get("DRA_USB_CHANNEL"),
     )
     DRA_USB_CHANNEL = "left"  # pyright: ignore[reportConstantRedefinition]
-DRA_COS_LINE = os.environ.get("TTS_DRA_COS_LINE", "vol_dn").strip().lower()
+DRA_COS_LINE = os.environ.get("DRA_COS_LINE", "vol_dn").strip().lower()
 if DRA_COS_LINE not in {"vol_dn", "vol_up", "allstar3"}:
     import logging
 
     logging.getLogger("app.config").warning(
-        "Invalid TTS_DRA_COS_LINE=%r; using 'vol_dn'",
-        os.environ.get("TTS_DRA_COS_LINE"),
+        "Invalid DRA_COS_LINE=%r; using 'vol_dn'",
+        os.environ.get("DRA_COS_LINE"),
     )
     DRA_COS_LINE = "vol_dn"  # pyright: ignore[reportConstantRedefinition]
-DRA_COS_ACTIVE_HIGH = _env_flag("TTS_DRA_COS_ACTIVE_HIGH", False)
+DRA_COS_ACTIVE_HIGH = _env_flag("DRA_COS_ACTIVE_HIGH", False)
 
 
 def _dra_audio_device_specs() -> list[str] | None:
-    raw = os.environ.get("TTS_DRA_AUDIO_DEVICES", "").strip()
+    raw = os.environ.get("DRA_AUDIO_DEVICES", "").strip()
     if not raw:
         return None
     return [part.strip() for part in raw.split(",") if part.strip()]
 
 
 DRA_AUDIO_DEVICE_SPECS = _dra_audio_device_specs()
-DRA_CLEAR_SECONDS = float(os.environ.get("TTS_DRA_CLEAR_SECONDS", "0"))
-DRA_CLEAR_POLL_SECONDS = float(os.environ.get("TTS_DRA_CLEAR_POLL_SECONDS", "0.25"))
-DRA_FINAL_CHECK_SECONDS = float(os.environ.get("TTS_DRA_FINAL_CHECK_SECONDS", "1.0"))
+DRA_CLEAR_SECONDS = float(os.environ.get("DRA_CLEAR_SECONDS", "0"))
+DRA_CLEAR_POLL_SECONDS = float(os.environ.get("DRA_CLEAR_POLL_SECONDS", "0.25"))
+DRA_FINAL_CHECK_SECONDS = float(os.environ.get("DRA_FINAL_CHECK_SECONDS", "1.0"))
 
 
 def dra_cos_track_enabled() -> bool:
-    raw = os.environ.get("TTS_DRA_COS_TRACK")
+    raw = os.environ.get("DRA_COS_TRACK")
     if raw is None:
         return True
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _dra_hid_path_bytes() -> bytes | None:
-    raw = os.environ.get("TTS_DRA_HID_PATH", "").strip()
+    raw = os.environ.get("DRA_HID_PATH", "").strip()
     if not raw:
         return None
     try:
@@ -217,7 +217,7 @@ def _dra_hid_path_bytes() -> bytes | None:
         import logging
 
         logging.getLogger("app.config").warning(
-            "Invalid TTS_DRA_HID_PATH (expected hex); ignoring"
+            "Invalid DRA_HID_PATH (expected hex); ignoring"
         )
         return None
 
@@ -226,19 +226,19 @@ DRA_HID_PATH_BYTES = _dra_hid_path_bytes()
 
 
 def dra_alsa_unmute_enabled() -> bool:
-    raw = os.environ.get("TTS_DRA_ALSA_UNMUTE")
+    raw = os.environ.get("DRA_ALSA_UNMUTE")
     if raw is None:
         return True
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
-DRA_ALSA_SPEAKER_LEVEL = os.environ.get("TTS_DRA_ALSA_SPEAKER_LEVEL", "100%").strip() or "100%"
-DRA_ALSA_PLAYBACK_DEVICE = os.environ.get("TTS_DRA_ALSA_PLAYBACK_DEVICE", "").strip()
+DRA_ALSA_SPEAKER_LEVEL = os.environ.get("DRA_ALSA_SPEAKER_LEVEL", "100%").strip() or "100%"
+DRA_ALSA_PLAYBACK_DEVICE = os.environ.get("DRA_ALSA_PLAYBACK_DEVICE", "").strip()
 
 
 def dra_prefer_alsa_hw() -> bool:
     """When both exist, choose PortAudio ``(hw:…)`` vs PipeWire ``alsa_output.usb-…``."""
-    raw = os.environ.get("TTS_DRA_PREFER_ALSA_HW")
+    raw = os.environ.get("DRA_PREFER_ALSA_HW")
     if raw is None:
         # Default hw: PipeWire sink playback can block forever in PortAudio/sounddevice.
         return True
@@ -249,7 +249,7 @@ def dra_linux_playback_backend() -> str:
     """Linux CM119 playback: ``aplay`` to ``plughw`` (default) or ``portaudio``."""
     import sys
 
-    raw = os.environ.get("TTS_DRA_LINUX_PLAYBACK", "aplay").strip().lower()
+    raw = os.environ.get("DRA_LINUX_PLAYBACK", "aplay").strip().lower()
     if not sys.platform.startswith("linux"):
         return "portaudio"
     if raw in {"aplay", "portaudio"}:
@@ -257,7 +257,7 @@ def dra_linux_playback_backend() -> str:
     import logging
 
     logging.getLogger("app.config").warning(
-        "Invalid TTS_DRA_LINUX_PLAYBACK=%r; using aplay", raw
+        "Invalid DRA_LINUX_PLAYBACK=%r; using aplay", raw
     )
     return "aplay"
 
@@ -277,7 +277,7 @@ def _hhmm_env(name: str, default: str) -> str:
 
 
 def _news_interval_hours() -> float:
-    raw = os.environ.get("TTS_NEWS_CHECK_INTERVAL_HOURS", "").strip()
+    raw = os.environ.get("NEWS_CHECK_INTERVAL_HOURS", "").strip()
     if not raw:
         return DEFAULT_NEWS_CHECK_INTERVAL_HOURS
     try:
@@ -292,7 +292,7 @@ def _news_interval_hours() -> float:
         import logging
 
         logging.getLogger("app.config").warning(
-            "Invalid TTS_NEWS_CHECK_INTERVAL_HOURS=%r; using %s",
+            "Invalid NEWS_CHECK_INTERVAL_HOURS=%r; using %s",
             raw,
             DEFAULT_NEWS_CHECK_INTERVAL_HOURS,
         )
@@ -306,7 +306,7 @@ def news_check_interval_minutes() -> int:
 
 
 def _repeater_timeout_seconds() -> int:
-    raw = os.environ.get("TTS_REPEATER_TIMEOUT_SECONDS", "").strip()
+    raw = os.environ.get("REPEATER_TIMEOUT_SECONDS", "").strip()
     if not raw:
         return DEFAULT_REPEATER_TIMEOUT_SECONDS
     try:
@@ -317,7 +317,7 @@ def _repeater_timeout_seconds() -> int:
         import logging
 
         logging.getLogger("app.config").warning(
-            "Invalid TTS_REPEATER_TIMEOUT_SECONDS=%r; using %s",
+            "Invalid REPEATER_TIMEOUT_SECONDS=%r; using %s",
             raw,
             DEFAULT_REPEATER_TIMEOUT_SECONDS,
         )
@@ -325,19 +325,19 @@ def _repeater_timeout_seconds() -> int:
     return value
 
 
-DEFAULT_BUSY_RETRY_SECONDS = float(os.environ.get("TTS_BUSY_RETRY_SECONDS", "5"))
-DEFAULT_BUSY_GIVE_UP_SECONDS = float(os.environ.get("TTS_BUSY_GIVE_UP_SECONDS", "45"))
-SCHEDULER_MAX_WAIT_SECONDS = float(os.environ.get("TTS_SCHEDULER_MAX_WAIT_SECONDS", "5"))
-NEWS_CHECK_START = _hhmm_env("TTS_NEWS_CHECK_START", DEFAULT_NEWS_CHECK_START)
-NEWS_CHECK_STOP = _hhmm_env("TTS_NEWS_CHECK_STOP", DEFAULT_NEWS_CHECK_STOP)
+DEFAULT_BUSY_RETRY_SECONDS = float(os.environ.get("BUSY_RETRY_SECONDS", "5"))
+DEFAULT_BUSY_GIVE_UP_SECONDS = float(os.environ.get("BUSY_GIVE_UP_SECONDS", "45"))
+SCHEDULER_MAX_WAIT_SECONDS = float(os.environ.get("SCHEDULER_MAX_WAIT_SECONDS", "5"))
+NEWS_CHECK_START = _hhmm_env("NEWS_CHECK_START", DEFAULT_NEWS_CHECK_START)
+NEWS_CHECK_STOP = _hhmm_env("NEWS_CHECK_STOP", DEFAULT_NEWS_CHECK_STOP)
 NEWS_CHECK_INTERVAL_HOURS = _news_interval_hours()
 REPEATER_TIMEOUT_SECONDS = _repeater_timeout_seconds()
-DEFAULT_SLOT_HALF_WINDOW_MINUTES = int(os.environ.get("TTS_SLOT_HALF_WINDOW_MINUTES", "10"))
-LOOKAHEAD_HOURS = int(os.environ.get("TTS_SLOT_LOOKAHEAD_HOURS", "72"))
-TRIGGER_NOW = _env_flag("TTS_TRIGGER_NOW", False)
-FIRE_VERBOSE_LOG = _env_flag("TTS_FIRE_VERBOSE_LOG", False)
-NEWSLINE_RESTART_AFTER_PROCESS = _env_flag("TTS_NEWSLINE_RESTART_AFTER_PROCESS", False)
-SESSION_IDLE_SECONDS = int(os.environ.get("TTS_SESSION_IDLE_SECONDS", str(30 * 60)))
+DEFAULT_SLOT_HALF_WINDOW_MINUTES = int(os.environ.get("SLOT_HALF_WINDOW_MINUTES", "10"))
+LOOKAHEAD_HOURS = int(os.environ.get("SLOT_LOOKAHEAD_HOURS", "72"))
+TRIGGER_NOW = _env_flag("TRIGGER_NOW", False)
+FIRE_VERBOSE_LOG = _env_flag("FIRE_VERBOSE_LOG", False)
+NEWSLINE_RESTART_AFTER_PROCESS = _env_flag("NEWSLINE_RESTART_AFTER_PROCESS", False)
+SESSION_IDLE_SECONDS = int(os.environ.get("SESSION_IDLE_SECONDS", str(30 * 60)))
 
 # Station identity for UI / FastAPI title / idle assertion (call and name are required).
 STATION_CALL = _require_env("STATION_CALL")
@@ -347,12 +347,12 @@ APP_TITLE = os.environ.get("APP_TITLE", "").strip() or f"{STATION_CALL} Announce
 
 def login_max_failures() -> int:
     """Failed sign-ins allowed per client+username before HTTP 429."""
-    return _env_positive_int("TTS_LOGIN_MAX_FAILURES", 5)
+    return _env_positive_int("LOGIN_MAX_FAILURES", 5)
 
 
 def login_window_seconds() -> float:
     """How long those failures stay counted, in seconds."""
-    return _env_positive_float("TTS_LOGIN_WINDOW_SECONDS", 300.0)
+    return _env_positive_float("LOGIN_WINDOW_SECONDS", 300.0)
 
 
 LOGIN_MAX_FAILURES = login_max_failures()
@@ -450,25 +450,25 @@ def assign_live_settings(
     os.environ["TTS_DEFAULT_VOICE"] = default_voice
     os.environ["TTS_SPEED"] = _env_number(speed)
     os.environ["TTS_SENTENCE_PAUSE"] = _env_number(sentence_pause)
-    os.environ["TTS_PTT_LEAD_SECONDS"] = _env_number(ptt_lead_seconds)
-    os.environ["TTS_BUSY_RETRY_SECONDS"] = _env_number(busy_retry_seconds)
-    os.environ["TTS_BUSY_GIVE_UP_SECONDS"] = _env_number(busy_give_up_seconds)
-    os.environ["TTS_MAX_TEXT_CHARS"] = str(max_text_chars)
-    os.environ["TTS_AUDIO_ANNOUNCEMENT_MAX_BYTES"] = str(audio_announcement_max_bytes)
+    os.environ["PTT_LEAD_SECONDS"] = _env_number(ptt_lead_seconds)
+    os.environ["BUSY_RETRY_SECONDS"] = _env_number(busy_retry_seconds)
+    os.environ["BUSY_GIVE_UP_SECONDS"] = _env_number(busy_give_up_seconds)
+    os.environ["MAX_TEXT_CHARS"] = str(max_text_chars)
+    os.environ["AUDIO_ANNOUNCEMENT_MAX_BYTES"] = str(audio_announcement_max_bytes)
     os.environ["TTS_PIPER_QUALITIES"] = piper_qualities
-    os.environ["TTS_TIMEZONE"] = timezone
-    os.environ["TTS_SLOT_LOOKAHEAD_HOURS"] = str(slot_lookahead_hours)
-    os.environ["TTS_SCHEDULER_MAX_WAIT_SECONDS"] = _env_number(scheduler_max_wait_seconds)
-    os.environ["TTS_SESSION_IDLE_SECONDS"] = str(session_idle_seconds)
-    os.environ["TTS_LOGIN_MAX_FAILURES"] = str(login_max_failures)
-    os.environ["TTS_LOGIN_WINDOW_SECONDS"] = _env_number(login_window_seconds)
-    os.environ["TTS_TRIGGER_NOW"] = "true" if trigger_now else "false"
-    os.environ["TTS_FIRE_VERBOSE_LOG"] = "true" if fire_verbose_log else "false"
-    os.environ["TTS_NEWS_CHECK_START"] = news_check_start
-    os.environ["TTS_NEWS_CHECK_STOP"] = news_check_stop
-    os.environ["TTS_NEWS_CHECK_INTERVAL_HOURS"] = _env_number(news_check_interval_hours)
-    os.environ["TTS_REPEATER_TIMEOUT_SECONDS"] = str(repeater_timeout_seconds)
-    os.environ["TTS_NEWSLINE_RESTART_AFTER_PROCESS"] = (
+    os.environ["TIMEZONE"] = timezone
+    os.environ["SLOT_LOOKAHEAD_HOURS"] = str(slot_lookahead_hours)
+    os.environ["SCHEDULER_MAX_WAIT_SECONDS"] = _env_number(scheduler_max_wait_seconds)
+    os.environ["SESSION_IDLE_SECONDS"] = str(session_idle_seconds)
+    os.environ["LOGIN_MAX_FAILURES"] = str(login_max_failures)
+    os.environ["LOGIN_WINDOW_SECONDS"] = _env_number(login_window_seconds)
+    os.environ["TRIGGER_NOW"] = "true" if trigger_now else "false"
+    os.environ["FIRE_VERBOSE_LOG"] = "true" if fire_verbose_log else "false"
+    os.environ["NEWS_CHECK_START"] = news_check_start
+    os.environ["NEWS_CHECK_STOP"] = news_check_stop
+    os.environ["NEWS_CHECK_INTERVAL_HOURS"] = _env_number(news_check_interval_hours)
+    os.environ["REPEATER_TIMEOUT_SECONDS"] = str(repeater_timeout_seconds)
+    os.environ["NEWSLINE_RESTART_AFTER_PROCESS"] = (
         "true" if newsline_restart_after_process else "false"
     )
 
@@ -486,25 +486,25 @@ def editable_env_updates() -> dict[str, str]:
         "TTS_DEFAULT_VOICE": DEFAULT_PIPER_VOICE,
         "TTS_SPEED": _env_number(DEFAULT_SPEED),
         "TTS_SENTENCE_PAUSE": _env_number(DEFAULT_SENTENCE_PAUSE),
-        "TTS_PTT_LEAD_SECONDS": _env_number(PTT_LEAD_SECONDS),
-        "TTS_BUSY_RETRY_SECONDS": _env_number(DEFAULT_BUSY_RETRY_SECONDS),
-        "TTS_BUSY_GIVE_UP_SECONDS": _env_number(DEFAULT_BUSY_GIVE_UP_SECONDS),
-        "TTS_MAX_TEXT_CHARS": str(MAX_TEXT_CHARS),
-        "TTS_AUDIO_ANNOUNCEMENT_MAX_BYTES": str(AUDIO_ANNOUNCEMENT_MAX_BYTES),
+        "PTT_LEAD_SECONDS": _env_number(PTT_LEAD_SECONDS),
+        "BUSY_RETRY_SECONDS": _env_number(DEFAULT_BUSY_RETRY_SECONDS),
+        "BUSY_GIVE_UP_SECONDS": _env_number(DEFAULT_BUSY_GIVE_UP_SECONDS),
+        "MAX_TEXT_CHARS": str(MAX_TEXT_CHARS),
+        "AUDIO_ANNOUNCEMENT_MAX_BYTES": str(AUDIO_ANNOUNCEMENT_MAX_BYTES),
         "TTS_PIPER_QUALITIES": PIPER_QUALITIES,
-        "TTS_TIMEZONE": TIMEZONE,
-        "TTS_SLOT_LOOKAHEAD_HOURS": str(LOOKAHEAD_HOURS),
-        "TTS_SCHEDULER_MAX_WAIT_SECONDS": _env_number(SCHEDULER_MAX_WAIT_SECONDS),
-        "TTS_SESSION_IDLE_SECONDS": str(SESSION_IDLE_SECONDS),
-        "TTS_LOGIN_MAX_FAILURES": str(LOGIN_MAX_FAILURES),
-        "TTS_LOGIN_WINDOW_SECONDS": _env_number(LOGIN_WINDOW_SECONDS),
-        "TTS_TRIGGER_NOW": "true" if TRIGGER_NOW else "false",
-        "TTS_FIRE_VERBOSE_LOG": "true" if FIRE_VERBOSE_LOG else "false",
-        "TTS_NEWS_CHECK_START": NEWS_CHECK_START,
-        "TTS_NEWS_CHECK_STOP": NEWS_CHECK_STOP,
-        "TTS_NEWS_CHECK_INTERVAL_HOURS": _env_number(NEWS_CHECK_INTERVAL_HOURS),
-        "TTS_REPEATER_TIMEOUT_SECONDS": str(REPEATER_TIMEOUT_SECONDS),
-        "TTS_NEWSLINE_RESTART_AFTER_PROCESS": (
+        "TIMEZONE": TIMEZONE,
+        "SLOT_LOOKAHEAD_HOURS": str(LOOKAHEAD_HOURS),
+        "SCHEDULER_MAX_WAIT_SECONDS": _env_number(SCHEDULER_MAX_WAIT_SECONDS),
+        "SESSION_IDLE_SECONDS": str(SESSION_IDLE_SECONDS),
+        "LOGIN_MAX_FAILURES": str(LOGIN_MAX_FAILURES),
+        "LOGIN_WINDOW_SECONDS": _env_number(LOGIN_WINDOW_SECONDS),
+        "TRIGGER_NOW": "true" if TRIGGER_NOW else "false",
+        "FIRE_VERBOSE_LOG": "true" if FIRE_VERBOSE_LOG else "false",
+        "NEWS_CHECK_START": NEWS_CHECK_START,
+        "NEWS_CHECK_STOP": NEWS_CHECK_STOP,
+        "NEWS_CHECK_INTERVAL_HOURS": _env_number(NEWS_CHECK_INTERVAL_HOURS),
+        "REPEATER_TIMEOUT_SECONDS": str(REPEATER_TIMEOUT_SECONDS),
+        "NEWSLINE_RESTART_AFTER_PROCESS": (
             "true" if NEWSLINE_RESTART_AFTER_PROCESS else "false"
         ),
     }
@@ -512,7 +512,7 @@ def editable_env_updates() -> dict[str, str]:
 
 def session_secret() -> str:
     """Return the session signing secret, creating a persisted one if needed."""
-    configured = os.environ.get("TTS_SESSION_SECRET", "").strip()
+    configured = os.environ.get("SESSION_SECRET", "").strip()
     if configured:
         return configured
     if SESSION_SECRET_PATH.is_file():

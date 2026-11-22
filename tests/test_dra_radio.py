@@ -108,7 +108,7 @@ def test_transmit_uses_usb_lead_on_dra(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_create_radio_stub_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("TTS_RADIO_BACKEND", "stub")
+    monkeypatch.setenv("RADIO_BACKEND", "stub")
     set_radio(None)
     radio = create_radio_from_config()
     from app.radio import StubRadio

@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 def test_play_mono_f32_uses_aplay_on_linux(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.dra_playback.sys.platform", "linux")
-    monkeypatch.setenv("TTS_DRA_LINUX_PLAYBACK", "aplay")
+    monkeypatch.setenv("DRA_LINUX_PLAYBACK", "aplay")
     aplay_calls: list[tuple[str, int]] = []
 
     def fake_unmute(_indices: list[int]) -> None:

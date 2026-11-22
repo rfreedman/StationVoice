@@ -77,8 +77,8 @@ def test_admin_config_is_admin_only(
 
 
 def test_save_updates_page_history_and_dotenv(client: TestClient) -> None:
-    env_path = Path(os.environ["TTS_DOTENV_PATH"])
-    _ = env_path.write_text("# keep me\nTTS_HOST=127.0.0.1\nSTATION_NAME=Old\n", encoding="utf-8")
+    env_path = Path(os.environ["DOTENV_PATH"])
+    _ = env_path.write_text("# keep me\nHOST=127.0.0.1\nSTATION_NAME=Old\n", encoding="utf-8")
     state = _state(client)
     values = _values(state)
     values["station_name"] = "North Club"
@@ -93,9 +93,9 @@ def test_save_updates_page_history_and_dotenv(client: TestClient) -> None:
     assert app_config.STATION_NAME == "North Club"
     text = env_path.read_text(encoding="utf-8")
     assert "# keep me" in text
-    assert "TTS_HOST=127.0.0.1" in text
+    assert "HOST=127.0.0.1" in text
     assert "STATION_NAME=North Club" in text
-    assert "TTS_SESSION_SECRET" not in text
+    assert "SESSION_SECRET" not in text
     assert saved.generation == state.generation + 1
     page_headers = client.get("/").headers
     assert page_headers["x-config-generation"] == "1"
@@ -110,11 +110,11 @@ def test_admin_emails_save_to_secrets_only_and_survive_revert(
 
     _ = install_stub_bird_sdk()
     _ = install_bird_plugin(tmp_path)
-    monkeypatch.setenv("TTS_PLUGINS_DIR", str(tmp_path))
+    monkeypatch.setenv("PLUGINS_DIR", str(tmp_path))
     notify_email.reset_notifier_for_tests()
 
-    env_path = Path(os.environ["TTS_DOTENV_PATH"])
-    secrets_path = Path(os.environ["TTS_SECRETS_DOTENV_PATH"])
+    env_path = Path(os.environ["DOTENV_PATH"])
+    secrets_path = Path(os.environ["SECRETS_DOTENV_PATH"])
     _ = env_path.write_text("STATION_NAME=Club\n", encoding="utf-8")
     _ = secrets_path.write_text(
         "# keep secrets header\nBIRD_API_KEY=bk_keep\nADMIN_EMAILS=old@example.com\n",
@@ -165,7 +165,7 @@ def test_admin_emails_reject_invalid_address(
 
     _ = install_stub_bird_sdk()
     _ = install_bird_plugin(tmp_path)
-    monkeypatch.setenv("TTS_PLUGINS_DIR", str(tmp_path))
+    monkeypatch.setenv("PLUGINS_DIR", str(tmp_path))
     notify_email.reset_notifier_for_tests()
 
     values = _values(_state(client))
@@ -197,14 +197,14 @@ def test_admin_email_plugin_absent_hides_recipients_and_ignores_save(
 ) -> None:
     from app import notify_email
 
-    secrets_path = Path(os.environ["TTS_SECRETS_DOTENV_PATH"])
+    secrets_path = Path(os.environ["SECRETS_DOTENV_PATH"])
     _ = secrets_path.write_text(
         'ADMIN_EMAILS="keep@example.com"\nADMIN_EMAIL_NOTIFICATIONS=0\n',
         encoding="utf-8",
     )
     os.environ["ADMIN_EMAILS"] = "keep@example.com"
     os.environ["ADMIN_EMAIL_NOTIFICATIONS"] = "0"
-    monkeypatch.setenv("TTS_PLUGINS_DIR", str(tmp_path))
+    monkeypatch.setenv("PLUGINS_DIR", str(tmp_path))
     notify_email.reset_notifier_for_tests()
 
     state = _state(client)
@@ -244,10 +244,10 @@ def test_admin_email_notifications_toggle_and_survive_revert(
 
     _ = install_stub_bird_sdk()
     _ = install_bird_plugin(tmp_path)
-    monkeypatch.setenv("TTS_PLUGINS_DIR", str(tmp_path))
+    monkeypatch.setenv("PLUGINS_DIR", str(tmp_path))
     notify_email.reset_notifier_for_tests()
 
-    secrets_path = Path(os.environ["TTS_SECRETS_DOTENV_PATH"])
+    secrets_path = Path(os.environ["SECRETS_DOTENV_PATH"])
     _ = secrets_path.write_text(
         'ADMIN_EMAILS="ops@example.com"\n',
         encoding="utf-8",
@@ -299,7 +299,7 @@ def test_newsline_interval_save_rearms_and_rejects_a_too_small_value(
         calls.append(immediate)
 
     monkeypatch.setattr("app.newsline.poll.arm_next_poll", record)
-    env_path = Path(os.environ["TTS_DOTENV_PATH"])
+    env_path = Path(os.environ["DOTENV_PATH"])
     _ = env_path.write_text("", encoding="utf-8")
     state = _state(client)
     values = _values(state)
@@ -316,10 +316,10 @@ def test_newsline_interval_save_rearms_and_rejects_a_too_small_value(
     assert app_config.news_check_interval_minutes() == 30
     assert app_config.REPEATER_TIMEOUT_SECONDS == 200
     text = env_path.read_text(encoding="utf-8")
-    assert "TTS_NEWS_CHECK_START=13:30" in text
-    assert "TTS_NEWS_CHECK_STOP=17:00" in text
-    assert "TTS_NEWS_CHECK_INTERVAL_HOURS=0.5" in text
-    assert "TTS_REPEATER_TIMEOUT_SECONDS=200" in text
+    assert "NEWS_CHECK_START=13:30" in text
+    assert "NEWS_CHECK_STOP=17:00" in text
+    assert "NEWS_CHECK_INTERVAL_HOURS=0.5" in text
+    assert "REPEATER_TIMEOUT_SECONDS=200" in text
     assert calls == [False]
     values["news_check_interval_hours"] = 0.25
     res = client.post(
@@ -503,7 +503,7 @@ def test_logo_display_size_is_saved_for_the_header(
     assert 'style="--logo-width: 40px; --logo-height: 96px"' in kept
     assert 'value="40"' in kept
     assert 'value="96"' in kept
-    display_file = Path(os.environ["TTS_BRANDING_DIR"]) / "display.json"
+    display_file = Path(os.environ["BRANDING_DIR"]) / "display.json"
     display_file.unlink()
     uploaded = client.post(
         "/api/admin/branding/logo",

@@ -1,10 +1,10 @@
 # Linux host notes
 
-A **DRA** (Digital Radio Adapter) is the USB box between the computer and one radio. This project uses the [Masters Communications **DRA-36M**](https://www.masterscommunications.com/products/radio-adapter/dra/dra36m.html). It plays the announcement into the radio and keys the transmitter. The setting `TTS_RADIO_BACKEND=dra` means the app is using those adapters.
+A **DRA** (Digital Radio Adapter) is the USB box between the computer and one radio. This project uses the [Masters Communications **DRA-36M**](https://www.masterscommunications.com/products/radio-adapter/dra/dra36m.html). It plays the announcement into the radio and keys the transmitter. The setting `RADIO_BACKEND=dra` means the app is using those adapters.
 
 **Piper** is a text-to-speech (TTS) library. It turns announcement text into the speech the radio transmits.
 
-Operational lessons from the **Ubuntu 26.04.1 LTS** machine used for radio development and testing with those adapters (2026-10). On that host (2026-10-24): **single-radio** `retest` with **IC-2720** and **IC-207H**; **dual DRA** `dual-retest` with **IC-2720** + **FT-8900R**. The announcements app (`TTS_RADIO_BACKEND=dra`) has been run there with two DRAs and transmitted on both radios. Radios have not been tried on macOS. Re-run `probe-all` / `dual-retest` when both production **IC-207H** replace the bench pair. For jumpers, checkout order, and `dra36m_check.py` commands, see [`final-hardware/`](final-hardware/README.md).
+Operational lessons from the **Ubuntu 26.04.1 LTS** machine used for radio development and testing with those adapters (2026-10). On that host (2026-10-24): **single-radio** `retest` with **IC-2720** and **IC-207H**; **dual DRA** `dual-retest` with **IC-2720** + **FT-8900R**. The announcements app (`RADIO_BACKEND=dra`) has been run there with two DRAs and transmitted on both radios. Radios have not been tried on macOS. Re-run `probe-all` / `dual-retest` when both production **IC-207H** replace the bench pair. For jumpers, checkout order, and `dra36m_check.py` commands, see [`final-hardware/`](final-hardware/README.md).
 
 After **deploy or restart**, busy-retry / defer state and login lockout counters are in-memory only — see [Deploying — Process restart and in-memory state](deploy.md#process-restart-and-in-memory-state).
 
@@ -22,7 +22,7 @@ Run bench scripts and `python -m app serve` as that user — **not** `sudo` (roo
 
 ## Stub backend on headless Linux
 
-`TTS_RADIO_BACKEND=stub` replaces only the radio (PTT/COS). A **trigger** or scheduled fire still plays PCM on the **host** through PortAudio (`sounddevice`). Browser **Play** is separate: it streams to the web client and does not use host PortAudio.
+`RADIO_BACKEND=stub` replaces only the radio (PTT/COS). A **trigger** or scheduled fire still plays PCM on the **host** through PortAudio (`sounddevice`). Browser **Play** is separate: it streams to the web client and does not use host PortAudio.
 
 On Debian/Ubuntu, PortAudio talks to **PulseAudio** (or PipeWire’s `pipewire-pulse`). `libportaudio2` alone is not enough — the app user needs a running Pulse/PipeWire session (`XDG_RUNTIME_DIR`, usually `/run/user/<uid>/pulse/native`). Without that, triggers fail with:
 
@@ -51,7 +51,7 @@ python -c "import sounddevice as sd; print(sd.query_devices())"
 
 6. Restart the app if it was started before Pulse was up, then trigger an announcement. Audio goes to the null sink (the web UI still will not hear triggered audio). A manual `pactl load-module` null sink does not survive a Pulse/PipeWire restart unless you persist it (same as the desktop null-sink note below); `auto_null` comes back when Pulse starts with no hardware.
 
-When you switch to `TTS_RADIO_BACKEND=dra`, CM119 USB devices replace this null-sink path for on-air transmit.
+When you switch to `RADIO_BACKEND=dra`, CM119 USB devices replace this null-sink path for on-air transmit.
 
 ---
 
@@ -68,7 +68,7 @@ amixer -c 1 sset Speaker 100% unmute
 
 Re-run `python scripts/dra36m_check.py smoke -c left --seconds 2 --lead 0.6` to confirm tone on DATA IN. Adjust **R16** on the DRA (JU3=L) for deviation, not only software volume.
 
-With `TTS_RADIO_BACKEND=dra`, the app **unmutes Speaker at startup** on each CM119 ALSA card it uses (see `TTS_DRA_ALSA_UNMUTE`, `TTS_DRA_ALSA_SPEAKER_LEVEL`). Startup fails if `amixer` cannot unmute — fix permissions or install `alsa-utils`.
+With `RADIO_BACKEND=dra`, the app **unmutes Speaker at startup** on each CM119 ALSA card it uses (see `DRA_ALSA_UNMUTE`, `DRA_ALSA_SPEAKER_LEVEL`). Startup fails if `amixer` cannot unmute — fix permissions or install `alsa-utils`.
 
 After **USB replug** while the app is running, the card often mutes again; the app watches `/proc/asound/cards` on the COS poll (~0.25 s) and before transmit, and re-runs `amixer` when CM119 card numbers change (no app restart needed).
 
@@ -145,7 +145,7 @@ Shorter notes: **plasmashell** / **libcanberra** after bench tests can leave COM
 When only one DRA is connected, `probe` prints a path for the app:
 
 ```text
-TTS_DRA_HID_PATH=<hex from probe>
+DRA_HID_PATH=<hex from probe>
 ```
 
 Example from the Ubuntu host that was tested: `312d343a312e33` (USB path `1-4:1.3`).
@@ -154,9 +154,9 @@ Example from the Ubuntu host that was tested: `312d343a312e33` (USB path `1-4:1.
 
 Dual transmit uses **two separate CM119A devices** (one per DRA-36M): two USB audio endpoints and **two** HID interfaces. At startup the app should log **2 HID + 2 PortAudio** pairings.
 
-- Leave **`TTS_DRA_HID_PATH` unset** — it selects a single CM119 and hides the second radio’s PTT/COS.
-- Use **fixed USB ports** on the Linux host; optional **`TTS_DRA_AUDIO_DEVICES`** if device order varies.
-- With PipeWire, the same CM119 may appear as both `(hw:…)` and `alsa_output.usb-…` in PortAudio. The app defaults to **`(hw:…)`** for device pick (PipeWire sink playback can hang PortAudio). Set **`TTS_DRA_PREFER_ALSA_HW=0`** to use the Pulse sink. **Playback on Linux uses `aplay -D hw:N,0` (then `plughw`) by default** (`TTS_DRA_LINUX_PLAYBACK=aplay`); set **`TTS_DRA_LINUX_PLAYBACK=portaudio`** to force PortAudio. Unmute uses **all playback ALSA controls** on the card (not only `Speaker`). After reboot, if startup paired only Pulse sinks, the next fire re-resolves to `(hw:…)` when those appear (and can map Pulse→ALSA via `/proc/asound/cards` for `aplay`) — see GitHub [#88](https://github.com/rfreedman/StationVoice/issues/88).
+- Leave **`DRA_HID_PATH` unset** — it selects a single CM119 and hides the second radio’s PTT/COS.
+- Use **fixed USB ports** on the Linux host; optional **`DRA_AUDIO_DEVICES`** if device order varies.
+- With PipeWire, the same CM119 may appear as both `(hw:…)` and `alsa_output.usb-…` in PortAudio. The app defaults to **`(hw:…)`** for device pick (PipeWire sink playback can hang PortAudio). Set **`DRA_PREFER_ALSA_HW=0`** to use the Pulse sink. **Playback on Linux uses `aplay -D hw:N,0` (then `plughw`) by default** (`DRA_LINUX_PLAYBACK=aplay`); set **`DRA_LINUX_PLAYBACK=portaudio`** to force PortAudio. Unmute uses **all playback ALSA controls** on the card (not only `Speaker`). After reboot, if startup paired only Pulse sinks, the next fire re-resolves to `(hw:…)` when those appear (and can map Pulse→ALSA via `/proc/asound/cards` for `aplay`) — see GitHub [#88](https://github.com/rfreedman/StationVoice/issues/88).
 - If HID count ≠ audio count, run `python scripts/dra36m_check.py probe-all`, confirm udev/`plugdev`, and see [Identifying two identical adapters](final-hardware/README.md#identifying-two-identical-adapters) in [`final-hardware/README.md`](final-hardware/README.md).
 - With both DRAs connected: `probe-all` then `dual-retest -c left --with-voice --lead 0.6` ([dual checklist](final-hardware/dra36m-check-tests.md#dual-dra-two-adapters-on-one-host)). For first-time checkout of one new unit, unplug the other and use single-radio `retest`.
 
@@ -164,7 +164,7 @@ Dual transmit uses **two separate CM119A devices** (one per DRA-36M): two USB au
 
 ## App on the Linux host
 
-- Set **`TTS_RADIO_BACKEND=dra`** in `.env` for on-air scheduled playback (keep **`stub`** on macOS, where radios have not been tried).
+- Set **`RADIO_BACKEND=dra`** in `.env` for on-air scheduled playback (keep **`stub`** on macOS, where radios have not been tried).
 - After a clean start, check the log for **`Startup complete … (radio mode: dra)`** (console or `data/logs/announcements.log`). If no DRA is attached while `.env` asks for `dra`, the app **falls back to stub**, sends **one** admin alert, and stays up — use **Admin → Environment → Restart application** after plugging the adapter in. If you still see **`stub`** with adapters attached, check `.env` / HID / udev.
 - Other fatal startup errors (permissions, unmute, bad config, etc.) log, notify **once**, and exit; the systemd unit uses **`Restart=no`**, so it stays inactive until you `systemctl start` / deploy / Admin restart (when still up). There is no auto-restart loop.
 - Record rig-specific values in [`final-hardware/bench-record.md`](final-hardware/bench-record.md).

@@ -19,7 +19,7 @@ def _bird_plugins_dir(
     _ = install_stub_bird_sdk()
     plugins = tmp_path_factory.mktemp("bird-plugins")
     _ = install_bird_plugin(plugins)
-    monkeypatch.setenv("TTS_PLUGINS_DIR", str(plugins))
+    monkeypatch.setenv("PLUGINS_DIR", str(plugins))
     notify_email.reset_notifier_for_tests()
     yield plugins
     notify_email.reset_notifier_for_tests()

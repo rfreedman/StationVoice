@@ -14,7 +14,7 @@ from app.config import DATA_DIR, enforce_text_limit
 
 
 def override_path() -> Path:
-    override = os.environ.get("TTS_DEFAULT_ANNOUNCEMENT_PATH", "").strip()
+    override = os.environ.get("DEFAULT_ANNOUNCEMENT_PATH", "").strip()
     if override:
         return Path(override).expanduser()
     return DATA_DIR / "default-announcement.txt"

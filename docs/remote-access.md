@@ -1,6 +1,6 @@
 # Remote access (Tailscale + Caddy)
 
-How operators reach the announcements UI on the Linux host. The app itself listens on **`:8000`** (`TTS_HOST` / `TTS_PORT`; default `0.0.0.0:8000`). HTTPS for the public name is terminated by **Caddy**, not by the app.
+How operators reach the announcements UI on the Linux host. The app itself listens on **`:8000`** (`HOST` / `PORT`; default `0.0.0.0:8000`). HTTPS for the public name is terminated by **Caddy**, not by the app.
 
 ## URLs
 

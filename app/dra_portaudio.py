@@ -159,12 +159,12 @@ def prefer_cm119_hw_devices(
 def auto_select_dra_outputs(
     devices: list[DraOutputDevice] | None = None,
 ) -> list[DraOutputDevice]:
-    """DRA-like outputs for auto pairing (no ``TTS_DRA_AUDIO_DEVICES``).
+    """DRA-like outputs for auto pairing (no ``DRA_AUDIO_DEVICES``).
 
     On a Linux NUC with PipeWire, the same CM119 often appears as both an ALSA
     ``(hw:…)`` device and an ``alsa_output.usb-…`` sink. Default ``(hw:…)`` —
     the PipeWire sink can hang ``sd.play()`` / PortAudio. Set
-    ``TTS_DRA_PREFER_ALSA_HW=0`` to prefer ``alsa_output.usb-…``. When no
+    ``DRA_PREFER_ALSA_HW=0`` to prefer ``alsa_output.usb-…``. When no
     ``(hw:…)`` names exist (typical macOS), return every DRA-like output.
     """
     from app.config import dra_prefer_alsa_hw
@@ -226,19 +226,19 @@ def resolve_dra_audio_indices(
                 _ensure_portaudio_initialized_unlocked()
                 dev = _as_portaudio_device(cast(object, sd.query_devices(idx)))
             if dev["max_output_channels"] < 1:
-                raise RuntimeError(f"TTS_DRA_AUDIO_DEVICES index {idx} has no output channels")
+                raise RuntimeError(f"DRA_AUDIO_DEVICES index {idx} has no output channels")
             indices.append(idx)
             continue
         matches = [(i, d) for i, d in all_dra if spec.lower() in d["name"].lower()]
         if len(matches) != 1:
             names = [d["name"] for _i, d in all_dra]
             raise RuntimeError(
-                f"TTS_DRA_AUDIO_DEVICES entry {spec!r} matched {len(matches)} devices "
+                f"DRA_AUDIO_DEVICES entry {spec!r} matched {len(matches)} devices "
                 + f"(expected 1). Available: {names}"
             )
         indices.append(matches[0][0])
     if not indices:
-        raise RuntimeError("TTS_DRA_AUDIO_DEVICES was set but parsed empty")
+        raise RuntimeError("DRA_AUDIO_DEVICES was set but parsed empty")
     return indices
 
 

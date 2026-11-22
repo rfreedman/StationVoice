@@ -63,7 +63,7 @@ log = logging.getLogger("app.server")
 def _sync_startup_for_tests() -> bool:
     import os
 
-    return os.environ.get("TTS_SKIP_DOTENV", "").strip() == "1"
+    return os.environ.get("SKIP_DOTENV", "").strip() == "1"
 
 
 async def _complete_startup(started: float, stats_stop: asyncio.Event) -> asyncio.Task[None] | None:

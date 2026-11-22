@@ -481,7 +481,7 @@ def cmd_probe(_args) -> int:
     print(f"OK: opened HID {dev.get_product_string()}")
     entry = _cm119_hid_match(hid)
     if entry and entry.get("path"):
-        print(f"    TTS_DRA_HID_PATH={entry['path'].hex()}  (app single-DRA pin)")
+        print(f"    DRA_HID_PATH={entry['path'].hex()}  (app single-DRA pin)")
     raw = read_hid_input(dev)
     print(f"    input report (IR0..3): {raw.hex() if raw else '(none)'}")
     if raw:

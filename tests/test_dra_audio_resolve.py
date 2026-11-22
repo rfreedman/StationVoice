@@ -28,7 +28,7 @@ def test_auto_select_prefers_alsa_hw_on_linux_by_default(monkeypatch: pytest.Mon
 
 
 def test_auto_select_prefers_pipewire_when_env_off(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("TTS_DRA_PREFER_ALSA_HW", "0")
+    monkeypatch.setenv("DRA_PREFER_ALSA_HW", "0")
     monkeypatch.setattr("app.dra_portaudio.sys.platform", "linux")
     devices: list[DraOutputDevice] = [
         (4, _dev("USB PnP Sound Device: Audio (hw:1,0)")),

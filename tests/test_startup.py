@@ -68,10 +68,10 @@ def test_init_radio_at_startup_wraps_runtime_error(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr("app.config.radio_backend", lambda: "dra")
 
     def boom():
-        raise RuntimeError("TTS_DRA_HID_PATH did not match any CM119 HID path.")
+        raise RuntimeError("DRA_HID_PATH did not match any CM119 HID path.")
 
     monkeypatch.setattr("app.radio.create_radio_from_config", boom)
-    with pytest.raises(StartupError, match="TTS_DRA_HID_PATH"):
+    with pytest.raises(StartupError, match="DRA_HID_PATH"):
         init_radio_at_startup()
 
 

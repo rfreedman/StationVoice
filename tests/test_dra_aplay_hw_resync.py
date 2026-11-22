@@ -132,7 +132,7 @@ def test_alsa_card_for_aplay_falls_back_pulse_ordinal(
 def test_alsa_playback_devices_use_proc_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("TTS_DRA_ALSA_PLAYBACK_DEVICE", raising=False)
+    monkeypatch.delenv("DRA_ALSA_PLAYBACK_DEVICE", raising=False)
 
     def card_for(_index: int) -> int:
         return 1

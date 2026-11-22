@@ -1,4 +1,4 @@
-"""Optional verbose logging for busy / defer / clear / retry (``TTS_FIRE_VERBOSE_LOG``)."""
+"""Optional verbose logging for busy / defer / clear / retry (``FIRE_VERBOSE_LOG``)."""
 from __future__ import annotations
 
 import logging
