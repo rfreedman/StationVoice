@@ -694,6 +694,11 @@ button:disabled {
   color: var(--moss);
 }
 
+#library-rows tr.is-playing [data-library-length] {
+  color: var(--moss);
+  font-variant-numeric: tabular-nums;
+}
+
 #newsline-play-status {
   flex: 1;
   min-width: 0;

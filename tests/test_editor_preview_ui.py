@@ -397,9 +397,40 @@ def test_speak_status_shows_elapsed_and_total() -> None:
     assert "knownTotal = Number.isFinite(totalSeconds) && totalSeconds > 0 ? totalSeconds : 0" in source
     assert "function startHtmlAudioClock(" in source
     assert "startHtmlAudioClock(el, totalHint)" in source
+    assert "function reportPlayProgress(" in source
+    assert "reportPlayProgress(elapsed, total)" in source
+    assert "reportPlayProgress((Date.now() - started) / 1000, totalSeconds)" in source
+    assert "function reportStreamingProgress(" in source
+    assert "reportStreamingProgress(name, (Date.now() - started) / 1000)" in source
     set_status = source.split("function setStatus(", 1)[1].split("\nfunction ", 1)[0]
     assert "audio-play-status" in set_status
     assert "phoneme-status" in set_status
+
+
+def test_library_shows_play_progress_in_length_column() -> None:
+    source = APP_JS.read_text(encoding="utf-8")
+    css = (APP_JS.parent / "styles.css").read_text(encoding="utf-8")
+    assert "let libraryPreviewId = null" in source
+    assert "function beginLibraryPreview(" in source
+    assert "function updateLibraryPlayProgress(" in source
+    assert "function clearLibraryPlayProgress(" in source
+    assert "function libraryProgressLabel(" in source
+    assert "function libraryLengthLabel(" in source
+    speak_library = source.split("async function speakLibraryItem", 1)[1].split(
+        "\nasync function ", 1
+    )[0]
+    assert "beginLibraryPreview(item)" in speak_library
+    library = source.split("function renderLibrary", 1)[1].split("\nfunction ", 1)[0]
+    assert "data-library-length" in library
+    assert "dataset.announcementId = item.id" in library
+    assert "libraryProgressLabel(libraryPreviewElapsed, libraryPreviewTotal)" in library
+    assert "is-playing" in library
+    sync = source.split("function syncLibraryPlaybackButtons", 1)[1].split(
+        "\nfunction ", 1
+    )[0]
+    assert "libraryPreviewId" in sync
+    assert "rowId === libraryPreviewId" in sync
+    assert "#library-rows tr.is-playing [data-library-length]" in css
 
 
 def test_saved_announcement_shows_idle_length() -> None:
@@ -409,7 +440,7 @@ def test_saved_announcement_shows_idle_length() -> None:
     assert "function showKnownPlayLength()" in source
     assert "editorPlaySeconds =" in source.split("async function loadAnnouncement", 1)[1]
     assert "clearKnownPlayLength()" in source
-    assert "formatSegmentElapsed(item.play_seconds)" in source.split("function renderLibrary", 1)[1]
+    assert "libraryLengthLabel(item)" in source.split("function renderLibrary", 1)[1]
 
 
 def _const_number(source: str, name: str) -> float:

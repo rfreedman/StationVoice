@@ -167,6 +167,10 @@ let player = null;
 let abort = null;
 let editorPlaying = false;
 let editorPlaySeconds = null;
+/** @type {string|null} */
+let libraryPreviewId = null;
+let libraryPreviewElapsed = 0;
+let libraryPreviewTotal = 0;
 let session = 0;
 let pollTimer = null;
 let newslinePollTimer = null;
@@ -1229,7 +1233,9 @@ function syncLibraryPlaybackButtons() {
     button.disabled = playing;
   }
   for (const button of document.querySelectorAll("[data-library-stop]")) {
-    button.disabled = !playing;
+    const row = button.closest("tr");
+    const rowId = row?.dataset?.announcementId || "";
+    button.disabled = !(playing && libraryPreviewId && rowId === libraryPreviewId);
   }
 }
 
@@ -2239,6 +2245,99 @@ async function deleteAnnouncement(item) {
   return true;
 }
 
+/**
+ * @param {AnnouncementItem|null|undefined} item
+ */
+function libraryLengthLabel(item) {
+  if (
+    item &&
+    item.kind !== "newsline" &&
+    item.play_seconds != null &&
+    Number.isFinite(Number(item.play_seconds))
+  ) {
+    return formatSegmentElapsed(item.play_seconds);
+  }
+  return "—";
+}
+
+/**
+ * @param {number} elapsedSeconds
+ * @param {number} totalSeconds
+ */
+function libraryProgressLabel(elapsedSeconds, totalSeconds) {
+  const elapsed = formatSegmentElapsed(elapsedSeconds);
+  if (Number.isFinite(totalSeconds) && totalSeconds > 0) {
+    return `${elapsed} / ${formatSegmentElapsed(totalSeconds)}`;
+  }
+  return elapsed;
+}
+
+/**
+ * @param {AnnouncementItem} item
+ */
+function beginLibraryPreview(item) {
+  if (!item?.id) return;
+  libraryPreviewId = item.id;
+  const known = Number(item.play_seconds);
+  libraryPreviewElapsed = 0;
+  libraryPreviewTotal =
+    item.kind !== "newsline" && Number.isFinite(known) && known > 0 ? known : 0;
+  updateLibraryPlayProgress(0, libraryPreviewTotal);
+}
+
+function clearLibraryPlayProgress() {
+  const hadId = libraryPreviewId;
+  libraryPreviewId = null;
+  libraryPreviewElapsed = 0;
+  libraryPreviewTotal = 0;
+  for (const tr of document.querySelectorAll("#library-rows tr.is-playing")) {
+    tr.classList.remove("is-playing");
+    const lengthTd = tr.querySelector("[data-library-length]");
+    if (!lengthTd) continue;
+    const annId = tr.dataset.announcementId || "";
+    const item = announcements.find((entry) => entry.id === annId);
+    lengthTd.textContent = libraryLengthLabel(item);
+  }
+  if (hadId) syncLibraryPlaybackButtons();
+}
+
+/**
+ * @param {number} elapsedSeconds
+ * @param {number} totalSeconds
+ */
+function updateLibraryPlayProgress(elapsedSeconds, totalSeconds) {
+  libraryPreviewElapsed = elapsedSeconds;
+  libraryPreviewTotal = Number.isFinite(totalSeconds) && totalSeconds > 0 ? totalSeconds : 0;
+  if (!libraryPreviewId) return;
+  for (const tr of document.querySelectorAll("#library-rows tr")) {
+    const isActive = tr.dataset.announcementId === libraryPreviewId;
+    tr.classList.toggle("is-playing", isActive);
+    if (!isActive) continue;
+    const lengthTd = tr.querySelector("[data-library-length]");
+    if (lengthTd) {
+      lengthTd.textContent = libraryProgressLabel(libraryPreviewElapsed, libraryPreviewTotal);
+    }
+  }
+}
+
+/**
+ * @param {number} elapsedSeconds
+ * @param {number} totalSeconds
+ */
+function reportPlayProgress(elapsedSeconds, totalSeconds) {
+  setStatus(playingStatus(elapsedSeconds, totalSeconds), "playing");
+  updateLibraryPlayProgress(elapsedSeconds, totalSeconds);
+}
+
+/**
+ * @param {string} name
+ * @param {number} elapsedSeconds
+ */
+function reportStreamingProgress(name, elapsedSeconds) {
+  setStatus(streamingPieceStatus(name, elapsedSeconds), "playing");
+  updateLibraryPlayProgress(elapsedSeconds, 0);
+}
+
 /** @param {Array.<AnnouncementItem>} items */
 function renderLibrary(items) {
   const body = document.getElementById("library-rows");
@@ -2258,6 +2357,7 @@ function renderLibrary(items) {
   }
   for (const item of items) {
     const tr = document.createElement("tr");
+    tr.dataset.announcementId = item.id;
     let preview;
     if (item.kind === "newsline") {
       preview = "Amateur Radio Newsline";
@@ -2267,17 +2367,18 @@ function renderLibrary(items) {
       preview = (item.text || "").replace(/\s+/g, " ").slice(0, 90);
     }
     if (item.too_long) tr.classList.add("has-warning");
-    const lengthLabel =
-      item.kind !== "newsline" && item.play_seconds != null && Number.isFinite(Number(item.play_seconds))
-        ? formatSegmentElapsed(item.play_seconds)
-        : "—";
+    const isPreviewRow = Boolean(libraryPreviewId && item.id === libraryPreviewId && editorPlaying);
+    if (isPreviewRow) tr.classList.add("is-playing");
+    const lengthLabel = isPreviewRow
+      ? libraryProgressLabel(libraryPreviewElapsed, libraryPreviewTotal)
+      : libraryLengthLabel(item);
     const previewTruncated = item.kind === "tts" && preview.length === 90;
     tr.innerHTML = `
       <td>${escapeHtml(item.name)}</td>
       <td>${escapeHtml(preview)}${previewTruncated ? "…" : ""}${
         item.too_long ? `<div class="exclusion-line">Too long (${Number(item.play_seconds).toFixed(1)}s). Shorten it and save again.</div>` : ""
       }</td>
-      <td>${escapeHtml(lengthLabel)}</td>
+      <td data-library-length>${escapeHtml(lengthLabel)}</td>
       <td class="row-actions"></td>
     `;
     const actions = tr.querySelector(".row-actions");
@@ -2297,7 +2398,7 @@ function renderLibrary(items) {
     stopBtn.className = "ghost";
     stopBtn.textContent = "Stop";
     stopBtn.dataset.libraryStop = "1";
-    stopBtn.disabled = !editorPlaying;
+    stopBtn.disabled = !(editorPlaying && libraryPreviewId === item.id);
     stopBtn.addEventListener("click", (event) => {
       event.stopPropagation();
       stop();
@@ -2724,7 +2825,9 @@ function setPlaybackButtons(playing) {
 }
 
 function setEditorPlaying(playing) {
+  const wasPlaying = editorPlaying;
   editorPlaying = playing;
+  if (wasPlaying && !playing) clearLibraryPlayProgress();
   applyEditorReadOnly();
 }
 
@@ -3134,27 +3237,32 @@ async function speak() {
  */
 async function speakLibraryItem(item) {
   if (!item) return;
-  if ((item.kind || "tts") === "newsline") {
-    await playNewsline({
-      opening_announcement_id: item.opening_announcement_id || null,
-      station_id_announcement_id: item.station_id_announcement_id || null,
-      closing_announcement_id: item.closing_announcement_id || null,
-      resume_announcement_id: item.resume_announcement_id || null,
-      ptt_gap_seconds: item.ptt_gap_seconds,
+  beginLibraryPreview(item);
+  try {
+    if ((item.kind || "tts") === "newsline") {
+      await playNewsline({
+        opening_announcement_id: item.opening_announcement_id || null,
+        station_id_announcement_id: item.station_id_announcement_id || null,
+        closing_announcement_id: item.closing_announcement_id || null,
+        resume_announcement_id: item.resume_announcement_id || null,
+        ptt_gap_seconds: item.ptt_gap_seconds,
+      });
+      return;
+    }
+    if (item.kind === "audio") {
+      await playAudioAnnouncement(item.id, { totalSeconds: item.play_seconds });
+      return;
+    }
+    await speakWithParams({
+      text: item.text || "",
+      voice: item.voice || voiceEl.value,
+      speed: Number(item.speed ?? 1),
+      sentence_pause: Number(item.sentence_pause ?? 0.25),
+      use_phoneme_dictionary: item.use_phoneme_dictionary !== false,
     });
-    return;
+  } finally {
+    if (!editorPlaying) clearLibraryPlayProgress();
   }
-  if (item.kind === "audio") {
-    await playAudioAnnouncement(item.id, { totalSeconds: item.play_seconds });
-    return;
-  }
-  await speakWithParams({
-    text: item.text || "",
-    voice: item.voice || voiceEl.value,
-    speed: Number(item.speed ?? 1),
-    sentence_pause: Number(item.sentence_pause ?? 0.25),
-    use_phoneme_dictionary: item.use_phoneme_dictionary !== false,
-  });
 }
 
 /** @type {HTMLAudioElement|null} */
@@ -3183,7 +3291,7 @@ function startHtmlAudioClock(audioEl, totalHint = 0) {
     let total = audioEl.duration;
     if (!Number.isFinite(total) || total <= 0) total = Number(totalHint) || 0;
     if (!Number.isFinite(total) || total < 0) total = 0;
-    setStatus(playingStatus(elapsed, total), "playing");
+    reportPlayProgress(elapsed, total);
   };
   tick();
   htmlAudioClock = setInterval(tick, 1000);
@@ -3221,7 +3329,7 @@ async function playAudioAnnouncement(announcementId, opts = {}) {
   audioPreviewEl = el;
   setEditorPlaying(true);
   syncLibraryPlaybackButtons();
-  setStatus(playingStatus(0, totalHint), "playing");
+  reportPlayProgress(0, totalHint);
   startHtmlAudioClock(el, totalHint);
   el.addEventListener("loadedmetadata", () => {
     if (audioPreviewEl === el) startHtmlAudioClock(el, totalHint);
@@ -3263,7 +3371,7 @@ async function playEditorAudio() {
   audioPreviewEl = el;
   setEditorPlaying(true);
   syncLibraryPlaybackButtons();
-  setStatus(playingStatus(0, totalHint), "playing");
+  reportPlayProgress(0, totalHint);
   startHtmlAudioClock(el, totalHint);
   const cleanup = () => {
     URL.revokeObjectURL(url);
@@ -3721,7 +3829,7 @@ class PcmPlayer {
         this._stopSegmentClock();
         return;
       }
-      setStatus(playingStatus((Date.now() - started) / 1000, totalSeconds), "playing");
+      reportPlayProgress((Date.now() - started) / 1000, totalSeconds);
     };
     tick();
     this._segmentClock = setInterval(tick, 1000);
@@ -3735,7 +3843,7 @@ class PcmPlayer {
         this._stopSegmentClock();
         return;
       }
-      setStatus(streamingPieceStatus(name, (Date.now() - started) / 1000), "playing");
+      reportStreamingProgress(name, (Date.now() - started) / 1000);
     };
     tick();
     this._segmentClock = setInterval(tick, 1000);
