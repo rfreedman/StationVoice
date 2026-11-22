@@ -124,6 +124,29 @@ def test_playback_stops_when_leaving_the_announcement_editor() -> None:
     assert "showKnownPlayLength()" in helper
 
 
+def test_audio_announcement_editor_fields_exist() -> None:
+    html = (APP_JS.parent / "index.html").read_text(encoding="utf-8")
+    source = APP_JS.read_text(encoding="utf-8")
+    assert 'value="audio">Audio file (MP3)</option>' in html
+    assert 'id="audio-fields"' in html
+    assert 'id="audio-file"' in html
+    assert 'id="busy-fields"' in html
+    assert "async function saveAudioAnnouncement(" in source
+    assert "function mp3DurationSeconds(" in source
+    assert "function speechLimitSeconds(" in source
+    assert "function formatBytesMb(" in source
+    assert "async function inspectSelectedAudioFile(" in source
+    assert "function audioUploadVerified(" in source
+    assert "function announcementRequiredFieldsOk(" in source
+    assert "await mp3DurationSeconds(file)" in source
+    assert "async function playAudioAnnouncement(" in source
+    assert 'filter === "kind-audio"' in source
+    assert " Mb" in source
+    assert "MiB" not in source.split("function formatBytesMb(", 1)[1].split(
+        "\nfunction ", 1
+    )[0]
+
+
 def test_library_has_speak_stop_and_detail_has_delete() -> None:
     source = APP_JS.read_text(encoding="utf-8")
     html = (APP_JS.parent / "index.html").read_text(encoding="utf-8")
@@ -141,11 +164,12 @@ def test_library_has_speak_stop_and_detail_has_delete() -> None:
     assert 'id="delete-announcement"' in html
     announcement = html.split('id="view-announcement"', 1)[1].split('id="view-schedule"', 1)[0]
     spoken_body = announcement.split('<div id="spoken-fields">', 1)[1].split(
-        '</div>\n\n        <div class="actions">', 1
+        'id="busy-fields"', 1
     )[0]
-    # Save/Delete must sit outside spoken-fields so Newsline can use them.
+    # Save/Delete must sit outside spoken-fields so Newsline/audio can use them.
     assert 'id="save-announcement"' not in spoken_body
     assert 'id="delete-announcement"' not in spoken_body
+    assert 'id="busy-fields"' in announcement
     assert 'id="save-announcement"' in announcement
     assert 'id="delete-announcement"' in announcement
     assert "async function speakWithParams(" in source
@@ -164,6 +188,9 @@ def test_library_filter_is_single_choice_sorted_by_name() -> None:
     assert 'value="unscheduled">Unscheduled</option>' in library_panel
     assert 'value="baseline">Scheduled as Baseline</option>' in library_panel
     assert 'value="non-baseline">Scheduled as non-Baseline</option>' in library_panel
+    assert 'value="kind-tts">Spoken</option>' in library_panel
+    assert 'value="kind-newsline">Newsline</option>' in library_panel
+    assert 'value="kind-audio">Audio file</option>' in library_panel
     assert "function filteredLibraryAnnouncements(" in source
     assert "function announcementSortByName(" in source
     assert "function announcementIsScheduled(" in source
@@ -190,6 +217,9 @@ def test_library_filter_is_single_choice_sorted_by_name() -> None:
     assert 'filter === "unscheduled"' in filtered
     assert 'filter === "baseline"' in filtered
     assert 'filter === "non-baseline"' in filtered
+    assert 'filter === "kind-tts"' in filtered
+    assert 'filter === "kind-newsline"' in filtered
+    assert 'filter === "kind-audio"' in filtered
     assert "announcementSortByName" in filtered
     sort = source.split("function announcementSortByName(", 1)[1].split("\nfunction ", 1)[0]
     assert "localeCompare" in sort
@@ -365,6 +395,11 @@ def test_speak_status_shows_elapsed_and_total() -> None:
     assert 'res.headers.get("X-Play-Seconds")' in source
     assert "this._startPlayClock(totalSeconds, signal)" in source
     assert "knownTotal = Number.isFinite(totalSeconds) && totalSeconds > 0 ? totalSeconds : 0" in source
+    assert "function startHtmlAudioClock(" in source
+    assert "startHtmlAudioClock(el, totalHint)" in source
+    set_status = source.split("function setStatus(", 1)[1].split("\nfunction ", 1)[0]
+    assert "audio-play-status" in set_status
+    assert "phoneme-status" in set_status
 
 
 def test_saved_announcement_shows_idle_length() -> None:

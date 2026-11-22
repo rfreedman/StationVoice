@@ -19,10 +19,12 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from app import config
 from app.config import (
     DATA_DIR,
+    MAX_AUDIO_ANNOUNCEMENT_MAX_BYTES,
     MAX_BUSY_GIVE_UP_SECONDS,
     MAX_BUSY_RETRY_SECONDS,
     MAX_SENTENCE_PAUSE,
     MAX_SPEECH_SPEED,
+    MIN_AUDIO_ANNOUNCEMENT_MAX_BYTES,
     MIN_SPEECH_SPEED,
     ROOT_DIR,
     TEXT_CHARS_CEILING,
@@ -54,6 +56,7 @@ class RuntimeConfigValues(BaseModel):
     busy_retry_seconds: float
     busy_give_up_seconds: float
     max_text_chars: int
+    audio_announcement_max_bytes: int = 5 * 1024 * 1024
     piper_qualities: Literal["all", "medium"]
     timezone: str
     slot_lookahead_hours: int
@@ -100,6 +103,12 @@ class RuntimeConfigValues(BaseModel):
             low_inclusive=False,
         )
         self.max_text_chars = _int_range(self.max_text_chars, "Max text length", 1, TEXT_CHARS_CEILING)
+        self.audio_announcement_max_bytes = _int_range(
+            self.audio_announcement_max_bytes,
+            "Max audio announcement upload",
+            MIN_AUDIO_ANNOUNCEMENT_MAX_BYTES,
+            MAX_AUDIO_ANNOUNCEMENT_MAX_BYTES,
+        )
         self.slot_lookahead_hours = _int_range(
             self.slot_lookahead_hours, "Lookahead", 1, 24 * 14
         )
@@ -282,6 +291,7 @@ def current_values() -> RuntimeConfigValues:
         busy_retry_seconds=config.DEFAULT_BUSY_RETRY_SECONDS,
         busy_give_up_seconds=config.DEFAULT_BUSY_GIVE_UP_SECONDS,
         max_text_chars=config.MAX_TEXT_CHARS,
+        audio_announcement_max_bytes=config.AUDIO_ANNOUNCEMENT_MAX_BYTES,
         piper_qualities=qualities,
         timezone=config.TIMEZONE,
         slot_lookahead_hours=config.LOOKAHEAD_HOURS,
@@ -425,6 +435,7 @@ def _apply(values: RuntimeConfigValues) -> None:
         busy_retry_seconds=values.busy_retry_seconds,
         busy_give_up_seconds=values.busy_give_up_seconds,
         max_text_chars=values.max_text_chars,
+        audio_announcement_max_bytes=values.audio_announcement_max_bytes,
         piper_qualities=values.piper_qualities,
         timezone=values.timezone,
         slot_lookahead_hours=values.slot_lookahead_hours,
@@ -467,11 +478,16 @@ def _sync_runtime(values: RuntimeConfigValues) -> None:
     arm_next_poll(immediate=False)
     timeout = int(config.REPEATER_TIMEOUT_SECONDS)
     length_changed = False
+    from app.models import AudioAnnouncement, TtsAnnouncement
+
     for item in list(store.document().announcements):
-        if item.kind != "tts":
+        if not isinstance(item, (TtsAnnouncement, AudioAnnouncement)):
             continue
         updated = recompute_too_long(item, timeout)
-        if updated.kind == "tts" and updated.too_long != item.too_long:
+        if (
+            isinstance(updated, (TtsAnnouncement, AudioAnnouncement))
+            and updated.too_long != item.too_long
+        ):
             _ = store.save_announcement(updated)
             length_changed = True
     if length_changed:

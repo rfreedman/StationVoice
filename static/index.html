@@ -276,6 +276,10 @@
               <label class="label" for="cfg-max-chars">Max announcement length (characters)</label>
               <input id="cfg-max-chars" type="number" min="1" max="20000" step="1" />
             </section>
+            <section class="voice-row">
+              <label class="label" for="cfg-audio-max-bytes">Max audio announcement upload (bytes)</label>
+              <input id="cfg-audio-max-bytes" type="number" min="65536" max="20971520" step="1" />
+            </section>
           </section>
 
           <section class="panel">
@@ -636,6 +640,9 @@ Repeater timeout 180 seconds.</p>
                     <option value="unscheduled">Unscheduled</option>
                     <option value="baseline">Scheduled as Baseline</option>
                     <option value="non-baseline">Scheduled as non-Baseline</option>
+                    <option value="kind-tts">Spoken</option>
+                    <option value="kind-newsline">Newsline</option>
+                    <option value="kind-audio">Audio file</option>
                   </select>
                   <span id="library-filter-count" class="library-filter-count" aria-live="polite">0</span>
                 </span>
@@ -884,8 +891,25 @@ Repeater timeout 180 seconds.</p>
           <select id="announcement-kind">
             <option value="tts">Spoken announcement</option>
             <option value="newsline">Amateur Radio Newsline</option>
+            <option value="audio">Audio file (MP3)</option>
           </select>
         </section>
+
+        <div id="audio-fields" class="hidden">
+          <section class="voice-row">
+            <label class="label" for="audio-file">MP3 file</label>
+            <input id="audio-file" type="file" accept=".mp3,audio/mpeg" />
+            <p id="audio-file-hint" class="lede tight"></p>
+            <p id="audio-current-file" class="lede tight hidden"></p>
+          </section>
+          <div class="script-meta">
+            <span id="audio-play-status">Ready</span>
+          </div>
+          <div class="actions">
+            <button type="button" class="primary" id="audio-play">Play</button>
+            <button type="button" class="ghost" id="audio-stop" disabled>Stop</button>
+          </div>
+        </div>
 
         <div id="newsline-fields" class="hidden">
           <section class="voice-row">
@@ -968,8 +992,9 @@ Repeater timeout 180 seconds.</p>
           <button type="button" class="ghost" id="stop" disabled>Stop</button>
           <button type="button" class="ghost" id="reset" disabled>Reset</button>
         </div>
+        </div>
 
-        <section class="controls" aria-label="Busy wait">
+        <section id="busy-fields" class="controls" aria-label="Busy wait">
           <div class="control">
             <div class="control-head">
               <label class="label" for="busy-retry">Busy retry (seconds)</label>
@@ -983,7 +1008,6 @@ Repeater timeout 180 seconds.</p>
             <input id="busy-giveup" type="number" min="5" max="600" step="1" value="300" />
           </div>
         </section>
-        </div>
 
         <div class="actions">
           <button type="button" class="primary" id="save-announcement" disabled>Save</button>

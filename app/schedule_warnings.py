@@ -31,7 +31,11 @@ def schedule_warning(
                 "The baseline for that slot plays instead, or the slot stays silent if none fits."
             )
         parts = too_long_parts(document, announcement)
-        if parts and (announcement.kind == "tts" or blocks_playback(document, announcement)):
+        if parts and (
+            announcement.kind == "tts"
+            or announcement.kind == "audio"
+            or blocks_playback(document, announcement)
+        ):
             return (
                 f"Won't play — {'; '.join(parts)}. "
                 "The baseline for that slot plays instead, or the slot stays silent if none fits."
@@ -40,6 +44,8 @@ def schedule_warning(
             return f"Plays, but {'; '.join(parts)} will be left out."
         if announcement.kind == "tts" and not announcement.text.strip():
             return "Won't play — announcement text is empty."
+        if announcement.kind == "audio" and not announcement.original_filename.strip():
+            return "Won't play — audio file is missing."
     zone = zone_for(document.settings.timezone)
     when = now or datetime.now(zone)
     if (

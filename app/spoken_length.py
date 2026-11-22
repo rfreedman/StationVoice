@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.audio import PcmChunk
-from app.models import Announcement, StoreDocument
+from app.models import Announcement, AudioAnnouncement, StoreDocument, TtsAnnouncement
 
 
 def pcm_duration_seconds(chunks: list[PcmChunk]) -> float:
@@ -35,7 +35,9 @@ def apply_played_length(
 
 
 def recompute_too_long(announcement: Announcement, timeout_seconds: int) -> Announcement:
-    if announcement.kind != "tts" or announcement.play_seconds is None:
+    if not isinstance(announcement, (TtsAnnouncement, AudioAnnouncement)):
+        return announcement
+    if announcement.play_seconds is None:
         return announcement
     too_long = announcement.play_seconds > speech_limit_seconds(timeout_seconds)
     if too_long == announcement.too_long:
@@ -63,7 +65,11 @@ def too_long_parts(document: StoreDocument, announcement: Announcement) -> list[
     limit = speech_limit_seconds(REPEATER_TIMEOUT_SECONDS)
     limit_text = format_seconds(limit)
     parts: list[str] = []
-    if announcement.kind == "tts" and announcement.too_long and announcement.play_seconds is not None:
+    if (
+        isinstance(announcement, (TtsAnnouncement, AudioAnnouncement))
+        and announcement.too_long
+        and announcement.play_seconds is not None
+    ):
         parts.append(
             f"{announcement.name} is {format_seconds(announcement.play_seconds)}s, "
             + f"over the {limit_text}s limit"
@@ -80,7 +86,9 @@ def too_long_parts(document: StoreDocument, announcement: Announcement) -> list[
         if not announcement_id:
             continue
         ref = document.announcement_by_id(announcement_id)
-        if ref is None or ref.kind != "tts" or not ref.too_long or ref.play_seconds is None:
+        if ref is None or not isinstance(ref, TtsAnnouncement):
+            continue
+        if not ref.too_long or ref.play_seconds is None:
             continue
         parts.append(
             f"{_role_label(role)} “{ref.name}” is {format_seconds(ref.play_seconds)}s, "
@@ -93,10 +101,10 @@ def blocks_playback(document: StoreDocument, announcement: Announcement | None) 
     """True when this library item must not go on the air as the slot's announcement."""
     if announcement is None:
         return True
-    if announcement.kind == "tts":
+    if isinstance(announcement, (TtsAnnouncement, AudioAnnouncement)):
         return announcement.too_long
     station = document.announcement_by_id(announcement.station_id_announcement_id)
-    return station is None or station.kind != "tts" or station.too_long
+    return station is None or not isinstance(station, TtsAnnouncement) or station.too_long
 
 
 def schedule_can_play(document: StoreDocument, schedule_announcement_id: str | None, *, silence: bool) -> bool:

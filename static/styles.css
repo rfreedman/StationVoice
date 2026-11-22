@@ -689,7 +689,8 @@ button:disabled {
 }
 
 #status.playing,
-#newsline-play-status.playing {
+#newsline-play-status.playing,
+#audio-play-status.playing {
   color: var(--moss);
 }
 
@@ -698,8 +699,13 @@ button:disabled {
   min-width: 0;
 }
 
+#audio-play-status {
+  margin-bottom: 20px;
+}
+
 #status.error,
-#newsline-play-status.error {
+#newsline-play-status.error,
+#audio-play-status.error {
   color: var(--danger);
 }
 

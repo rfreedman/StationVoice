@@ -66,6 +66,7 @@ class EngineRegistry:
             "max_busy_give_up_seconds": MAX_BUSY_GIVE_UP_SECONDS,
             "ptt_lead_seconds": app_config.PTT_LEAD_SECONDS,
             "max_text_chars": app_config.MAX_TEXT_CHARS,
+            "audio_announcement_max_bytes": app_config.AUDIO_ANNOUNCEMENT_MAX_BYTES,
             "station_call": app_config.STATION_CALL,
             "station_name": app_config.STATION_NAME,
             "app_title": app_config.APP_TITLE,

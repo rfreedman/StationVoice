@@ -12,14 +12,17 @@ a baseline schedule, an overlay, or both. Timing does not live on the text.
 ## Spoken length
 
 When you save a spoken announcement, the app synthesizes it (including sentence
-pauses and `[pause]` tags) and stores how long the audio is. The limit is the
+pauses and `[pause]` tags) and stores how long the audio is. An **audio file**
+(MP3) announcement is measured the same way from the uploaded file. The limit is the
 **repeater timeout** minus 2 seconds. The default timeout is 180 seconds, so the
 limit is 178 seconds. The PTT lead after key-up sits inside that 2 second margin.
 
-If the audio is over the limit, the text is still saved, and the editor tells
+If a spoken announcement is over the limit, the text is still saved, and the editor tells
 you the length, the limit, and to shorten it and save again. The announcement
 is marked too long. Shorten it under the limit and save again to clear the mark.
-Changing the repeater timeout on the Environment screen updates the mark from the stored
+An uploaded MP3 that is over the limit is **rejected** (not saved) with that same
+length message—use a shorter file. Changing the repeater timeout on the Environment
+screen updates the too-long mark on already-saved spoken/audio items from the stored
 length without synthesizing again.
 
 A too-long announcement cannot be chosen for a new or updated schedule. A

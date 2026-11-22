@@ -88,6 +88,7 @@ def restore_operator_settings() -> Iterator[None]:
         busy_retry_seconds=snapshot.busy_retry_seconds,
         busy_give_up_seconds=snapshot.busy_give_up_seconds,
         max_text_chars=snapshot.max_text_chars,
+        audio_announcement_max_bytes=snapshot.audio_announcement_max_bytes,
         piper_qualities=snapshot.piper_qualities,
         timezone=snapshot.timezone,
         slot_lookahead_hours=snapshot.slot_lookahead_hours,

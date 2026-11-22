@@ -101,9 +101,23 @@ class NewslineAnnouncement(AnnouncementCommon):
         return self
 
 
+class AudioAnnouncement(AnnouncementCommon):
+    """Operator-uploaded MP3 played as the slot announcement."""
+
+    kind: Literal["audio"] = "audio"
+    original_filename: str = ""
+    play_seconds: float | None = None
+    too_long: bool = False
+
+    @field_validator("original_filename")
+    @classmethod
+    def strip_filename(cls, value: str) -> str:
+        return value.strip()
+
+
 Announcement = Annotated[
     Annotated[
-        TtsAnnouncement | NewslineAnnouncement,
+        TtsAnnouncement | NewslineAnnouncement | AudioAnnouncement,
         Field(discriminator="kind"),
     ],
     BeforeValidator(_default_kind_tts),

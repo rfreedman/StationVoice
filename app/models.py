@@ -29,6 +29,7 @@ from app.model_common import (
 )
 from app.announcement_models import (
     Announcement as Announcement,
+    AudioAnnouncement as AudioAnnouncement,
     NewslineAnnouncement as NewslineAnnouncement,
     TtsAnnouncement as TtsAnnouncement,
     parse_announcement as parse_announcement,

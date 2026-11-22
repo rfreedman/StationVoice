@@ -1,0 +1,6 @@
+# Command Execution Rules
+- In JetBrains IDEs, foreground terminal commands time out at 30 seconds.
+- Whenever running `pytest` or any test suite/build expected to take more than 20 seconds:
+  1. Pass `timeout: 300` in the `execute_command` / `run_commands` tool arguments if supported.
+  2. Or run the command detached to a log file (`pytest > /tmp/pytest.log 2>&1 &`), wait/poll with `sleep 10 && tail -n 30 /tmp/pytest.log`, and read `/tmp/pytest.log` once the process finishes.
+- Prefer running targeted test files (`pytest tests/test_specific.py`) rather than the full suite during iterative edits.

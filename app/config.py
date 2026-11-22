@@ -119,6 +119,7 @@ MAX_BUSY_GIVE_UP_SECONDS = 600
 
 DATA_DIR = Path(os.environ.get("TTS_DATA_DIR", ROOT_DIR / "data")).expanduser()
 NEWSLINE_DIR = DATA_DIR / "arnewsline"
+ANNOUNCEMENT_AUDIO_DIR = DATA_DIR / "announcement_audio"
 DEFAULT_REPEATER_TIMEOUT_SECONDS = 180
 DEFAULT_NEWS_CHECK_START = "12:00"
 DEFAULT_NEWS_CHECK_STOP = "18:00"
@@ -127,6 +128,9 @@ MIN_NEWS_CHECK_INTERVAL_HOURS = 0.5
 MAX_NEWS_CHECK_INTERVAL_HOURS = 24.0
 MIN_REPEATER_TIMEOUT_SECONDS = 30
 MAX_REPEATER_TIMEOUT_SECONDS = 600
+DEFAULT_AUDIO_ANNOUNCEMENT_MAX_BYTES = 5 * 1024 * 1024
+MIN_AUDIO_ANNOUNCEMENT_MAX_BYTES = 64 * 1024
+MAX_AUDIO_ANNOUNCEMENT_MAX_BYTES = 20 * 1024 * 1024
 ANNOUNCEMENTS_PATH = DATA_DIR / "announcements.json"
 PHONEMES_PATH = DATA_DIR / "phonemes.json"
 USERS_PATH = Path(os.environ.get("TTS_USERS_PATH", DATA_DIR / "users.json")).expanduser()
@@ -136,6 +140,22 @@ LOG_DIR = Path(os.environ.get("TTS_LOG_DIR", DATA_DIR / "logs")).expanduser()
 LOG_KEEP_DAYS = int(os.environ.get("TTS_LOG_KEEP_DAYS", "30"))
 TIMEZONE = os.environ.get("TTS_TIMEZONE", "America/New_York")
 PTT_LEAD_SECONDS = float(os.environ.get("TTS_PTT_LEAD_SECONDS", "1"))
+
+
+def _audio_announcement_max_bytes() -> int:
+    raw = os.environ.get("TTS_AUDIO_ANNOUNCEMENT_MAX_BYTES", "").strip()
+    if not raw:
+        return DEFAULT_AUDIO_ANNOUNCEMENT_MAX_BYTES
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_AUDIO_ANNOUNCEMENT_MAX_BYTES
+    if value < MIN_AUDIO_ANNOUNCEMENT_MAX_BYTES or value > MAX_AUDIO_ANNOUNCEMENT_MAX_BYTES:
+        return DEFAULT_AUDIO_ANNOUNCEMENT_MAX_BYTES
+    return value
+
+
+AUDIO_ANNOUNCEMENT_MAX_BYTES = _audio_announcement_max_bytes()
 
 def radio_backend() -> str:
     return os.environ.get("TTS_RADIO_BACKEND", "stub").strip().lower()
@@ -369,6 +389,7 @@ def assign_live_settings(
     busy_retry_seconds: float,
     busy_give_up_seconds: float,
     max_text_chars: int,
+    audio_announcement_max_bytes: int,
     piper_qualities: str,
     timezone: str,
     slot_lookahead_hours: int,
@@ -403,6 +424,7 @@ def assign_live_settings(
         "DEFAULT_BUSY_RETRY_SECONDS": busy_retry_seconds,
         "DEFAULT_BUSY_GIVE_UP_SECONDS": busy_give_up_seconds,
         "MAX_TEXT_CHARS": max_text_chars,
+        "AUDIO_ANNOUNCEMENT_MAX_BYTES": audio_announcement_max_bytes,
         "PIPER_QUALITIES": piper_qualities,
         "TIMEZONE": timezone,
         "LOOKAHEAD_HOURS": slot_lookahead_hours,
@@ -432,6 +454,7 @@ def assign_live_settings(
     os.environ["TTS_BUSY_RETRY_SECONDS"] = _env_number(busy_retry_seconds)
     os.environ["TTS_BUSY_GIVE_UP_SECONDS"] = _env_number(busy_give_up_seconds)
     os.environ["TTS_MAX_TEXT_CHARS"] = str(max_text_chars)
+    os.environ["TTS_AUDIO_ANNOUNCEMENT_MAX_BYTES"] = str(audio_announcement_max_bytes)
     os.environ["TTS_PIPER_QUALITIES"] = piper_qualities
     os.environ["TTS_TIMEZONE"] = timezone
     os.environ["TTS_SLOT_LOOKAHEAD_HOURS"] = str(slot_lookahead_hours)
@@ -467,6 +490,7 @@ def editable_env_updates() -> dict[str, str]:
         "TTS_BUSY_RETRY_SECONDS": _env_number(DEFAULT_BUSY_RETRY_SECONDS),
         "TTS_BUSY_GIVE_UP_SECONDS": _env_number(DEFAULT_BUSY_GIVE_UP_SECONDS),
         "TTS_MAX_TEXT_CHARS": str(MAX_TEXT_CHARS),
+        "TTS_AUDIO_ANNOUNCEMENT_MAX_BYTES": str(AUDIO_ANNOUNCEMENT_MAX_BYTES),
         "TTS_PIPER_QUALITIES": PIPER_QUALITIES,
         "TTS_TIMEZONE": TIMEZONE,
         "TTS_SLOT_LOOKAHEAD_HOURS": str(LOOKAHEAD_HOURS),

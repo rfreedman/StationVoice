@@ -35,6 +35,7 @@ class VoicesPayload(TypedDict):
     max_busy_give_up_seconds: float
     ptt_lead_seconds: float
     max_text_chars: int
+    audio_announcement_max_bytes: int
     station_call: str
     station_name: str
     app_title: str

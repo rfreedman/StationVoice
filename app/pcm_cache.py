@@ -210,6 +210,10 @@ def speech_text_for(announcement: TtsAnnouncement) -> str:
 def chunks_for_announcement(announcement: Announcement) -> list[PcmChunk]:
     from app.registry import get_registry
 
+    if announcement.kind == "audio":
+        from app.audio_announcement import chunks_for_audio_announcement
+
+        return chunks_for_audio_announcement(announcement)
     if announcement.kind != "tts":
         raise ValueError(f"PCM cache only applies to spoken announcements, got {announcement.kind}")
     started = time.perf_counter()

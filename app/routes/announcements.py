@@ -3,13 +3,29 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import ValidationError
 
+from app.audio_announcement import (
+    audio_path,
+    delete_audio_file,
+    looks_like_mp3,
+    measure_audio_announcement,
+)
+from app.config import (
+    AUDIO_ANNOUNCEMENT_MAX_BYTES,
+    DEFAULT_BUSY_GIVE_UP_SECONDS,
+    DEFAULT_BUSY_RETRY_SECONDS,
+    REPEATER_TIMEOUT_SECONDS,
+)
 from app.deps import AdminUser, AuthUser
 from app.live_notify import notify_home_data_changed
-from app.models import Announcement, validate_announcement
+from app.model_common import new_id
+from app.models import Announcement, AudioAnnouncement, validate_announcement
 from app.pcm_cache import (
     get_pcm_cache,
     measure_announcement,
@@ -46,6 +62,11 @@ def _referenced(
 
 
 def _from_request(req: AnnouncementIn, existing: Announcement | None) -> Announcement:
+    if req.kind == "audio":
+        raise HTTPException(
+            status_code=400,
+            detail="Use the audio upload endpoints for MP3 announcements",
+        )
     store = get_store()
     previous_opening = (
         existing.opening_announcement_id if existing is not None and existing.kind == "newsline" else None
@@ -100,8 +121,6 @@ def _from_request(req: AnnouncementIn, existing: Announcement | None) -> Announc
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if item.kind != "tts":
         return item
-    from app.config import REPEATER_TIMEOUT_SECONDS
-
     timeout = REPEATER_TIMEOUT_SECONDS
     try:
         measured = measure_announcement(item, timeout)
@@ -118,6 +137,93 @@ def _from_request(req: AnnouncementIn, existing: Announcement | None) -> Announc
     return measured
 
 
+async def _read_audio_upload(file: UploadFile) -> tuple[bytes, str]:
+    data = await file.read(AUDIO_ANNOUNCEMENT_MAX_BYTES + 1)
+    filename = Path(file.filename or "upload.mp3").name
+    try:
+        looks_like_mp3(data, filename=filename, content_type=file.content_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return data, filename
+
+
+def _format_play_clock(seconds: float) -> str:
+    total = max(0, int(seconds))
+    minutes, secs = divmod(total, 60)
+    return f"{minutes}:{secs:02d}"
+
+
+def _reject_overlong_upload(play_seconds: float, limit: float) -> None:
+    raise HTTPException(
+        status_code=400,
+        detail=(
+            f"Audio is {_format_play_clock(play_seconds)}, over the "
+            f"{_format_play_clock(limit)} limit. Use a shorter MP3."
+        ),
+    )
+
+
+def _build_audio(
+    *,
+    announcement_id: str,
+    name: str,
+    busy_retry_seconds: float,
+    busy_give_up_seconds: float,
+    original_filename: str,
+    existing: AudioAnnouncement | None,
+    data: bytes | None,
+) -> AudioAnnouncement:
+    from app.spoken_length import speech_limit_seconds
+
+    try:
+        item = AudioAnnouncement(
+            id=announcement_id,
+            name=name,
+            busy_retry_seconds=busy_retry_seconds,
+            busy_give_up_seconds=busy_give_up_seconds,
+            original_filename=original_filename,
+            play_seconds=existing.play_seconds if existing is not None else None,
+            too_long=existing.too_long if existing is not None else False,
+        )
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    timeout = REPEATER_TIMEOUT_SECONDS
+    limit = speech_limit_seconds(timeout)
+    final_path = audio_path(announcement_id)
+
+    if data is not None:
+        # Stage the upload so a too-long or invalid file never replaces a good one.
+        from app.audio_announcement import ensure_audio_dir
+
+        _ = ensure_audio_dir()
+        staging = final_path.with_suffix(".mp3.upload")
+        _ = staging.write_bytes(data)
+        try:
+            measured = measure_audio_announcement(item, timeout, path=staging)
+        except ValueError as exc:
+            staging.unlink(missing_ok=True)
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except OSError as exc:
+            staging.unlink(missing_ok=True)
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        if measured.too_long:
+            play = measured.play_seconds if measured.play_seconds is not None else 0.0
+            staging.unlink(missing_ok=True)
+            _reject_overlong_upload(play, limit)
+        _ = staging.replace(final_path)
+        return measured.model_copy(update={"too_long": False})
+
+    if not final_path.is_file():
+        raise HTTPException(status_code=400, detail="Audio file is missing; upload an MP3")
+    try:
+        return measure_audio_announcement(item, timeout, path=final_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
 @router.get("/api/announcements")
 def list_announcements(_user: AuthUser) -> AnnouncementsListOut:
     return AnnouncementsListOut(announcements=get_store().list_announcements())
@@ -129,6 +235,76 @@ def get_announcement(announcement_id: str, _user: AuthUser) -> Announcement:
     if item is None:
         raise HTTPException(status_code=404, detail="Announcement not found")
     return item
+
+
+@router.get("/api/announcements/{announcement_id}/audio")
+def get_announcement_audio(announcement_id: str, _user: AuthUser) -> FileResponse:
+    item = get_store().get(announcement_id)
+    if item is None or item.kind != "audio":
+        raise HTTPException(status_code=404, detail="Audio announcement not found")
+    path = audio_path(announcement_id)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Audio file not found")
+    filename = item.original_filename or f"{announcement_id}.mp3"
+    return FileResponse(path, media_type="audio/mpeg", filename=filename)
+
+
+@router.post("/api/announcements/audio")
+async def create_audio_announcement(
+    _admin: AdminUser,
+    name: Annotated[str, Form()],
+    file: Annotated[UploadFile, File()],
+    busy_retry_seconds: Annotated[float, Form()] = DEFAULT_BUSY_RETRY_SECONDS,
+    busy_give_up_seconds: Annotated[float, Form()] = DEFAULT_BUSY_GIVE_UP_SECONDS,
+) -> Announcement:
+    data, filename = await _read_audio_upload(file)
+    announcement_id = new_id()
+    item = _build_audio(
+        announcement_id=announcement_id,
+        name=name,
+        busy_retry_seconds=busy_retry_seconds,
+        busy_give_up_seconds=busy_give_up_seconds,
+        original_filename=filename,
+        existing=None,
+        data=data,
+    )
+    stored = get_store().save_announcement(item)
+    notify_home_data_changed()
+    return stored
+
+
+@router.put("/api/announcements/{announcement_id}/audio")
+async def update_audio_announcement(
+    announcement_id: str,
+    _admin: AdminUser,
+    name: Annotated[str, Form()],
+    file: Annotated[UploadFile | None, File()] = None,
+    busy_retry_seconds: Annotated[float, Form()] = DEFAULT_BUSY_RETRY_SECONDS,
+    busy_give_up_seconds: Annotated[float, Form()] = DEFAULT_BUSY_GIVE_UP_SECONDS,
+) -> Announcement:
+    store = get_store()
+    existing = store.get(announcement_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Announcement not found")
+    if existing.kind != "audio":
+        raise HTTPException(status_code=400, detail="Announcement is not an audio file")
+    data: bytes | None = None
+    filename = existing.original_filename
+    if file is not None and (file.filename or file.content_type or file.size):
+        data, filename = await _read_audio_upload(file)
+    item = _build_audio(
+        announcement_id=announcement_id,
+        name=name,
+        busy_retry_seconds=busy_retry_seconds,
+        busy_give_up_seconds=busy_give_up_seconds,
+        original_filename=filename,
+        existing=existing,
+        data=data,
+    )
+    stored = store.save_announcement(item)
+    sync_jobs()
+    notify_home_data_changed()
+    return stored
 
 
 @router.post("/api/announcements")
@@ -149,6 +325,8 @@ def update_announcement(
     if existing is None:
         raise HTTPException(status_code=404, detail="Announcement not found")
     updated = _from_request(req, existing)
+    if existing.kind == "audio" and updated.kind != "audio":
+        delete_audio_file(announcement_id)
     stored = store.save_announcement(updated)
     _warm_in_background(stored)
     sync_jobs()
@@ -158,12 +336,15 @@ def update_announcement(
 
 @router.delete("/api/announcements/{announcement_id}")
 def delete_announcement(announcement_id: str, _admin: AdminUser) -> dict[str, bool]:
+    existing = get_store().get(announcement_id)
     try:
         if not get_store().delete_announcement(announcement_id):
             raise HTTPException(status_code=404, detail="Announcement not found")
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     get_pcm_cache().drop(announcement_id)
+    if existing is not None and existing.kind == "audio":
+        delete_audio_file(announcement_id)
     sync_jobs()
     notify_home_data_changed()
     return {"ok": True}

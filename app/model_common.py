@@ -33,7 +33,7 @@ MONTH_LABELS = {
 }
 
 ScheduleKind = Literal["baseline", "weekly", "monthly", "range", "monthly_range", "emergency"]
-AnnouncementKind = Literal["tts", "newsline"]
+AnnouncementKind = Literal["tts", "newsline", "audio"]
 OVERLAY_KINDS = frozenset({"weekly", "monthly", "range", "monthly_range", "emergency"})
 DEFAULT_PRIORITY = {
     "baseline": 0,

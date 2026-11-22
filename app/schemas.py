@@ -192,9 +192,16 @@ class NewslineAnnouncementIn(AnnouncementInCommon):
         return self
 
 
+class AudioAnnouncementIn(AnnouncementInCommon):
+    """Metadata-only body; MP3 bytes use the multipart /audio routes."""
+
+    kind: Literal["audio"]
+    original_filename: str = ""
+
+
 AnnouncementIn = Annotated[
     Annotated[
-        TtsAnnouncementIn | NewslineAnnouncementIn,
+        TtsAnnouncementIn | NewslineAnnouncementIn | AudioAnnouncementIn,
         Field(discriminator="kind"),
     ],
     BeforeValidator(_default_kind_tts),

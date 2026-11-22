@@ -104,6 +104,7 @@ const PTT_TONE_SECONDS = 0.2;
  * @property {string|null} [closing_announcement_id]
  * @property {string|null} [resume_announcement_id]
  * @property {number} [ptt_gap_seconds]
+ * @property {string} [original_filename]
  */
 
 /**
@@ -201,6 +202,20 @@ let triggerNowEnabled = false;
 let triggerNowBusy = false;
 let pendingManualTriggers = [];
 let editingAnnouncementId = null;
+/**
+ * Client-side check of the chosen audio upload (null when kind is not audio).
+ * @type {{
+ *   generation: number,
+ *   pending: boolean,
+ *   file: File|null,
+ *   bytes: number|null,
+ *   duration: number|null,
+ *   error: string|null,
+ *   ok: boolean,
+ * } | null}
+ */
+let audioFileCheck = null;
+let audioFileCheckGeneration = 0;
 /** @type {Array.<{spelling: string, ipa: string, alternate: string}>} */
 let phonemeEntries = [];
 let phonemeEditIndex = -1;
@@ -344,6 +359,7 @@ function announcementEditorControls() {
     document.getElementById("news-gap"),
     document.getElementById("newsline-reset"),
     document.getElementById("use-phoneme-dictionary"),
+    document.getElementById("audio-file"),
   ];
 }
 
@@ -724,6 +740,7 @@ function formSnapshot() {
       newsResume: document.getElementById("news-resume").value,
       newsGap: document.getElementById("news-gap").value,
       usePhonemeDictionary: document.getElementById("use-phoneme-dictionary").checked,
+      audioFile: document.getElementById("audio-file")?.files?.[0]?.name || "",
     });
   }
   if (document.getElementById("view-schedule").classList.contains("active")) {
@@ -739,10 +756,54 @@ function isEditorDirty() {
   return editorBaseline !== null && formSnapshot() !== editorBaseline;
 }
 
+function announcementRequiredFieldsOk() {
+  const kind = document.getElementById("announcement-kind").value;
+  if (!nameEl.value.trim()) return false;
+  if (kind === "tts") return Boolean(textEl.value.trim());
+  if (kind === "newsline") {
+    return Boolean(document.getElementById("news-station").value);
+  }
+  if (kind === "audio") return audioUploadVerified();
+  return true;
+}
+
+function audioUploadVerified() {
+  if (document.getElementById("announcement-kind").value !== "audio") return true;
+  if (!audioFileCheck || audioFileCheck.pending) return false;
+  const fileInput = document.getElementById("audio-file");
+  const hasNewFile = Boolean(fileInput && fileInput.files && fileInput.files[0]);
+  if (hasNewFile) return audioFileCheck.ok;
+  // Edit with no replacement file: keep the stored MP3.
+  return Boolean(editingAnnouncementId);
+}
+
+function audioPlayAllowed() {
+  if (readOnly || editorPlaying) return false;
+  if (document.getElementById("announcement-kind").value !== "audio") return false;
+  if (!audioFileCheck || audioFileCheck.pending || !audioFileCheck.ok) return false;
+  const fileInput = document.getElementById("audio-file");
+  const hasNewFile = Boolean(fileInput && fileInput.files && fileInput.files[0]);
+  return hasNewFile || Boolean(editingAnnouncementId);
+}
+
+function syncAudioPlayButton() {
+  const play = document.getElementById("audio-play");
+  const stopBtn = document.getElementById("audio-stop");
+  if (!play) return;
+  if (editorPlaying) {
+    play.disabled = true;
+    if (stopBtn) stopBtn.disabled = false;
+    return;
+  }
+  play.disabled = !audioPlayAllowed();
+  if (stopBtn) stopBtn.disabled = true;
+}
+
 function syncEditorSave() {
   const announcementSave = document.getElementById("save-announcement");
   if (announcementSave) {
-    announcementSave.disabled = readOnly || editorPlaying || !isEditorDirty();
+    announcementSave.disabled =
+      readOnly || editorPlaying || !isEditorDirty() || !announcementRequiredFieldsOk();
   }
   const scheduleSave = document.getElementById("save-schedule");
   if (scheduleSave) scheduleSave.disabled = readOnly || !isEditorDirty();
@@ -750,6 +811,7 @@ function syncEditorSave() {
     const button = document.getElementById(id);
     if (button) button.disabled = readOnly || editorPlaying || !isEditorDirty();
   }
+  syncAudioPlayButton();
 }
 
 function markEditorClean() {
@@ -786,6 +848,23 @@ function resetAnnouncementEdits() {
   editorPlaySeconds = editorBaselinePlaySeconds;
   if (editorBaselinePrefs == null) localStorage.removeItem(PREFS_KEY);
   else localStorage.setItem(PREFS_KEY, editorBaselinePrefs);
+  const audioInput = document.getElementById("audio-file");
+  if (audioInput) audioInput.value = "";
+  audioFileCheckGeneration += 1;
+  if (saved.kind === "audio") {
+    audioFileCheck = {
+      generation: audioFileCheckGeneration,
+      pending: false,
+      file: null,
+      bytes: null,
+      duration: editorPlaySeconds,
+      error: null,
+      ok: Boolean(editingAnnouncementId),
+    };
+  } else {
+    audioFileCheck = null;
+  }
+  renderAudioFileStatus();
   syncAnnouncementKind();
   updateCount();
   updateDeliveryLabels();
@@ -1115,6 +1194,9 @@ function filteredLibraryAnnouncements() {
     if (filter === "unscheduled") return used.length === 0;
     if (filter === "baseline") return used.some((row) => row.kind === "baseline");
     if (filter === "non-baseline") return used.some((row) => row.kind !== "baseline");
+    if (filter === "kind-tts") return (item.kind || "tts") === "tts";
+    if (filter === "kind-newsline") return item.kind === "newsline";
+    if (filter === "kind-audio") return item.kind === "audio";
     return true;
   });
   return matched.sort(announcementSortByName);
@@ -1314,12 +1396,15 @@ function fillAnnouncementSelect(selected, { allowSilence = false } = {}) {
     if (item.too_long && item.id !== selected) continue;
     const option = document.createElement("option");
     option.value = item.id;
-    const newsline = item.kind === "newsline";
-    option.textContent = newsline
-      ? `${item.name} (Newsline)`
-      : item.too_long
-        ? `${item.name} (too long)`
-        : item.name;
+    if (item.kind === "newsline") {
+      option.textContent = `${item.name} (Newsline)`;
+    } else if (item.kind === "audio") {
+      option.textContent = item.too_long
+        ? `${item.name} (Audio, too long)`
+        : `${item.name} (Audio)`;
+    } else {
+      option.textContent = item.too_long ? `${item.name} (too long)` : item.name;
+    }
     el.append(option);
   }
   if (selected === undefined) {
@@ -1846,7 +1931,234 @@ function fillSpokenSelect(id, selected, { optional = false } = {}) {
 function syncAnnouncementKind() {
   const kind = document.getElementById("announcement-kind").value;
   document.getElementById("newsline-fields").classList.toggle("hidden", kind !== "newsline");
-  document.getElementById("spoken-fields").classList.toggle("hidden", kind === "newsline");
+  document.getElementById("spoken-fields").classList.toggle("hidden", kind !== "tts");
+  document.getElementById("audio-fields").classList.toggle("hidden", kind !== "audio");
+  updateAudioFileHint();
+  if (kind === "audio") {
+    const fileInput = document.getElementById("audio-file");
+    const hasNewFile = Boolean(fileInput && fileInput.files && fileInput.files[0]);
+    if (!hasNewFile && editingAnnouncementId && audioFileCheck == null) {
+      audioFileCheck = {
+        generation: audioFileCheckGeneration,
+        pending: false,
+        file: null,
+        bytes: null,
+        duration: editorPlaySeconds,
+        error: null,
+        ok: true,
+      };
+      renderAudioFileStatus();
+    } else if (!hasNewFile && !editingAnnouncementId) {
+      audioFileCheck = {
+        generation: audioFileCheckGeneration,
+        pending: false,
+        file: null,
+        bytes: null,
+        duration: null,
+        error: null,
+        ok: false,
+      };
+      renderAudioFileStatus();
+    }
+  }
+  syncEditorSave();
+}
+
+function formatBytesMb(bytes) {
+  const mb = Number(bytes) / 1_000_000;
+  if (!Number.isFinite(mb) || mb < 0) return "0 Mb";
+  if (mb < 0.1) return `${mb.toFixed(2)} Mb`;
+  if (mb < 10) return `${mb.toFixed(1)} Mb`;
+  return `${mb.toFixed(0)} Mb`;
+}
+
+function speechLimitSeconds() {
+  return Math.max(0, Number(settings.repeater_timeout_seconds ?? 180) - 2);
+}
+
+function updateAudioFileHint() {
+  const hint = document.getElementById("audio-file-hint");
+  if (!hint) return;
+  const maxBytes = Number(catalog?.audio_announcement_max_bytes);
+  const limit = speechLimitSeconds();
+  const bits = ["MP3 only"];
+  if (Number.isFinite(maxBytes) && maxBytes > 0) {
+    bits.push(`maximum upload size ${formatBytesMb(maxBytes)}`);
+  }
+  bits.push(`must be at most ${formatSegmentElapsed(limit)}`);
+  hint.textContent = `${bits.join(". ")}.`;
+}
+
+/**
+ * Read play length from a local audio File before upload.
+ * @param {File} file
+ * @returns {Promise<number>}
+ */
+function mp3DurationSeconds(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const audio = new Audio();
+    audio.preload = "metadata";
+    const finish = (fn, value) => {
+      URL.revokeObjectURL(url);
+      fn(value);
+    };
+    audio.onloadedmetadata = () => {
+      const seconds = audio.duration;
+      if (!Number.isFinite(seconds) || seconds <= 0) {
+        finish(reject, new Error("Could not read duration"));
+        return;
+      }
+      finish(resolve, seconds);
+    };
+    audio.onerror = () => finish(reject, new Error("Could not read this file as audio"));
+    audio.src = url;
+  });
+}
+
+function renderAudioFileStatus() {
+  const el = document.getElementById("audio-current-file");
+  if (!el) return;
+  if (!audioFileCheck) {
+    el.textContent = "";
+    el.classList.add("hidden");
+    return;
+  }
+  if (audioFileCheck.pending) {
+    el.textContent = "Reading file…";
+    el.classList.remove("hidden");
+    return;
+  }
+  if (audioFileCheck.error) {
+    el.textContent = audioFileCheck.error;
+    el.classList.remove("hidden");
+    return;
+  }
+  if (audioFileCheck.file) {
+    const size =
+      audioFileCheck.bytes != null ? formatBytesMb(audioFileCheck.bytes) : "";
+    const length =
+      audioFileCheck.duration != null
+        ? formatSegmentElapsed(audioFileCheck.duration)
+        : "";
+    el.textContent = `${audioFileCheck.file.name} — ${size}, ${length}`;
+    el.classList.remove("hidden");
+    return;
+  }
+  if (editingAnnouncementId) {
+    const length =
+      audioFileCheck.duration != null
+        ? `, ${formatSegmentElapsed(audioFileCheck.duration)}`
+        : "";
+    el.textContent = `Current file on server${length}. Choose a new MP3 to replace it.`;
+    el.classList.remove("hidden");
+    return;
+  }
+  el.textContent = "Choose an MP3 file.";
+  el.classList.remove("hidden");
+}
+
+/** Clear local file pick state (used when leaving audio or blanking the form). */
+function clearAudioFileCheck() {
+  audioFileCheckGeneration += 1;
+  audioFileCheck = null;
+  const fileInput = document.getElementById("audio-file");
+  if (fileInput) fileInput.value = "";
+  renderAudioFileStatus();
+}
+
+/**
+ * Inspect the chosen MP3 immediately (size + duration) and gate Save/Play.
+ * @returns {Promise<void>}
+ */
+async function inspectSelectedAudioFile() {
+  const fileInput = document.getElementById("audio-file");
+  const file = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+  showError("announcement-error", "");
+  audioFileCheckGeneration += 1;
+  const generation = audioFileCheckGeneration;
+  if (!file) {
+    audioFileCheck = {
+      generation,
+      pending: false,
+      file: null,
+      bytes: null,
+      duration: editingAnnouncementId ? editorPlaySeconds : null,
+      error: null,
+      ok: Boolean(editingAnnouncementId),
+    };
+    renderAudioFileStatus();
+    syncEditorSave();
+    return;
+  }
+  audioFileCheck = {
+    generation,
+    pending: true,
+    file,
+    bytes: file.size,
+    duration: null,
+    error: null,
+    ok: false,
+  };
+  renderAudioFileStatus();
+  syncEditorSave();
+
+  const maxBytes = Number(catalog?.audio_announcement_max_bytes);
+  if (Number.isFinite(maxBytes) && maxBytes > 0 && file.size > maxBytes) {
+    if (generation !== audioFileCheckGeneration) return;
+    audioFileCheck = {
+      generation,
+      pending: false,
+      file,
+      bytes: file.size,
+      duration: null,
+      error: `File is ${formatBytesMb(file.size)}, over the ${formatBytesMb(maxBytes)} limit.`,
+      ok: false,
+    };
+    renderAudioFileStatus();
+    syncEditorSave();
+    return;
+  }
+
+  const limit = speechLimitSeconds();
+  try {
+    const duration = await mp3DurationSeconds(file);
+    if (generation !== audioFileCheckGeneration) return;
+    if (duration > limit) {
+      audioFileCheck = {
+        generation,
+        pending: false,
+        file,
+        bytes: file.size,
+        duration,
+        error: `Audio is ${formatSegmentElapsed(duration)}, over the ${formatSegmentElapsed(limit)} limit. Use a shorter MP3.`,
+        ok: false,
+      };
+    } else {
+      audioFileCheck = {
+        generation,
+        pending: false,
+        file,
+        bytes: file.size,
+        duration,
+        error: null,
+        ok: true,
+      };
+    }
+  } catch {
+    if (generation !== audioFileCheckGeneration) return;
+    audioFileCheck = {
+      generation,
+      pending: false,
+      file,
+      bytes: file.size,
+      duration: null,
+      error: "Could not read this file as audio.",
+      ok: false,
+    };
+  }
+  renderAudioFileStatus();
+  syncEditorSave();
 }
 
 /** @param {AnnouncementItem|null|undefined} item */
@@ -1858,8 +2170,8 @@ function showLengthWarning(item) {
     box.classList.add("hidden");
     return;
   }
-  const limit = Math.max(0, Number(settings.repeater_timeout_seconds ?? 180) - 2);
-  box.textContent = `This announcement is ${Number(item.play_seconds).toFixed(1)} seconds, longer than the ${limit} second limit. Shorten it and save again.`;
+  const limit = speechLimitSeconds();
+  box.textContent = `This announcement is ${formatSegmentElapsed(item.play_seconds)}, longer than the ${formatSegmentElapsed(limit)} limit. Shorten it and save again.`;
   box.classList.remove("hidden");
 }
 
@@ -1946,17 +2258,23 @@ function renderLibrary(items) {
   }
   for (const item of items) {
     const tr = document.createElement("tr");
-    const preview = item.kind === "newsline"
-      ? "Amateur Radio Newsline"
-      : (item.text || "").replace(/\s+/g, " ").slice(0, 90);
+    let preview;
+    if (item.kind === "newsline") {
+      preview = "Amateur Radio Newsline";
+    } else if (item.kind === "audio") {
+      preview = item.original_filename || "Audio file";
+    } else {
+      preview = (item.text || "").replace(/\s+/g, " ").slice(0, 90);
+    }
     if (item.too_long) tr.classList.add("has-warning");
     const lengthLabel =
       item.kind !== "newsline" && item.play_seconds != null && Number.isFinite(Number(item.play_seconds))
         ? formatSegmentElapsed(item.play_seconds)
         : "—";
+    const previewTruncated = item.kind === "tts" && preview.length === 90;
     tr.innerHTML = `
       <td>${escapeHtml(item.name)}</td>
-      <td>${escapeHtml(preview)}${item.kind !== "newsline" && preview.length === 90 ? "…" : ""}${
+      <td>${escapeHtml(preview)}${previewTruncated ? "…" : ""}${
         item.too_long ? `<div class="exclusion-line">Too long (${Number(item.play_seconds).toFixed(1)}s). Shorten it and save again.</div>` : ""
       }</td>
       <td>${escapeHtml(lengthLabel)}</td>
@@ -2381,7 +2699,7 @@ function updateDeliveryLabels() {
 }
 
 function setStatus(text, kind = "") {
-  for (const id of ["status", "newsline-play-status"]) {
+  for (const id of ["status", "newsline-play-status", "audio-play-status", "phoneme-status"]) {
     const el = document.getElementById(id);
     if (!el) continue;
     el.textContent = text;
@@ -2396,6 +2714,9 @@ function setPlaybackButtons(playing) {
   const stopNews = document.getElementById("newsline-stop");
   if (play) play.disabled = playing;
   if (stopNews) stopNews.disabled = !playing;
+  syncAudioPlayButton();
+  const audioStop = document.getElementById("audio-stop");
+  if (audioStop) audioStop.disabled = !playing;
   syncLibraryPlaybackButtons();
   syncDeleteButtons();
   syncDeleteAnnouncementButton();
@@ -2466,6 +2787,7 @@ function applyBrandingFromCatalog() {
     textEl.maxLength = maxChars;
     updateCount();
   }
+  updateAudioFileHint();
 }
 
 async function loadVoices() {
@@ -2511,7 +2833,9 @@ function blankAnnouncement() {
   const defaults = newAnnouncementDefaults();
   editingAnnouncementId = null;
   document.getElementById("announcement-title").textContent = "New announcement";
-  document.getElementById("announcement-kind").value = "tts";
+  const kindEl = document.getElementById("announcement-kind");
+  kindEl.value = "tts";
+  kindEl.disabled = false;
   nameEl.value = "";
   textEl.value = defaultScript;
   document.getElementById("use-phoneme-dictionary").checked = true;
@@ -2521,6 +2845,7 @@ function blankAnnouncement() {
   fillSpokenSelect("news-closing", "", { optional: true });
   fillSpokenSelect("news-resume", "", { optional: true });
   document.getElementById("news-gap").value = "2";
+  clearAudioFileCheck();
   showLengthWarning(null);
   syncAnnouncementKind();
   speedEl.value = String(defaults.speed);
@@ -2543,7 +2868,9 @@ async function loadAnnouncement(id) {
   document.getElementById("announcement-title").textContent = readOnly
     ? "View announcement"
     : "Edit announcement";
-  document.getElementById("announcement-kind").value = item.kind || "tts";
+  const kindEl = document.getElementById("announcement-kind");
+  kindEl.value = item.kind || "tts";
+  kindEl.disabled = true;
   nameEl.value = item.name || "";
   textEl.value = item.text || "";
   document.getElementById("use-phoneme-dictionary").checked = item.use_phoneme_dictionary !== false;
@@ -2553,7 +2880,31 @@ async function loadAnnouncement(id) {
   fillSpokenSelect("news-closing", item.closing_announcement_id || "", { optional: true });
   fillSpokenSelect("news-resume", item.resume_announcement_id || "", { optional: true });
   document.getElementById("news-gap").value = String(item.ptt_gap_seconds ?? 2);
+  clearAudioFileCheck();
   showLengthWarning(item);
+  const savedSeconds = Number(item.play_seconds);
+  editorPlaySeconds =
+    item.kind !== "newsline" && Number.isFinite(savedSeconds) && savedSeconds > 0
+      ? savedSeconds
+      : null;
+  if (item.kind === "audio") {
+    audioFileCheck = {
+      generation: audioFileCheckGeneration,
+      pending: false,
+      file: null,
+      bytes: null,
+      duration: editorPlaySeconds,
+      error: null,
+      ok: true,
+    };
+    const current = document.getElementById("audio-current-file");
+    if (current) {
+      const length =
+        editorPlaySeconds != null ? `, ${formatSegmentElapsed(editorPlaySeconds)}` : "";
+      current.textContent = `Current file: ${item.original_filename || "audio.mp3"}${length}. Choose a new MP3 to replace it.`;
+      current.classList.remove("hidden");
+    }
+  }
   syncAnnouncementKind();
   document.getElementById("busy-retry").value = String(item.busy_retry_seconds ?? 5);
   document.getElementById("busy-giveup").value = String(item.busy_give_up_seconds ?? 45);
@@ -2562,20 +2913,25 @@ async function loadAnnouncement(id) {
   if (item.voice) renderVoices(item.voice);
   updateCount();
   updateDeliveryLabels();
-  const savedSeconds = Number(item.play_seconds);
-  editorPlaySeconds =
-    item.kind !== "newsline" && Number.isFinite(savedSeconds) && savedSeconds > 0
-      ? savedSeconds
-      : null;
   showKnownPlayLength();
   syncDeleteAnnouncementButton();
+  syncEditorSave();
 }
 
 async function saveAnnouncement() {
   showError("announcement-error", "");
   const kind = document.getElementById("announcement-kind").value;
+  const name = nameEl.value.trim();
+  if (!name) {
+    showError("announcement-error", "Name is required.");
+    return;
+  }
+  if (kind === "audio") {
+    await saveAudioAnnouncement(name);
+    return;
+  }
   const body = {
-    name: nameEl.value.trim(),
+    name,
     kind,
     text: kind === "newsline" ? "Newsline" : textEl.value.trim(),
     voice: voiceEl.value,
@@ -2590,10 +2946,6 @@ async function saveAnnouncement() {
     resume_announcement_id: document.getElementById("news-resume").value || null,
     ptt_gap_seconds: Number(document.getElementById("news-gap").value),
   };
-  if (!body.name) {
-    showError("announcement-error", "Name is required.");
-    return;
-  }
   if (kind === "tts" && !textEl.value.trim()) {
     showError("announcement-error", "Announcement text is required.");
     return;
@@ -2621,6 +2973,36 @@ async function saveAnnouncement() {
       "announcement-error",
       `Saved, but it is too long to play (${Number(saved.play_seconds).toFixed(1)}s). Shorten it and save again.`,
     );
+    return;
+  }
+  clearEditorGuard();
+  goToHash("#/");
+}
+
+/** @param {string} name */
+async function saveAudioAnnouncement(name) {
+  const fileInput = document.getElementById("audio-file");
+  const file = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+  const isNew = !editingAnnouncementId;
+  if (!audioUploadVerified()) {
+    showError(
+      "announcement-error",
+      audioFileCheck?.error || "Choose a valid MP3 file before saving.",
+    );
+    return;
+  }
+  persist();
+  const form = new FormData();
+  form.append("name", name);
+  form.append("busy_retry_seconds", String(Number(document.getElementById("busy-retry").value)));
+  form.append("busy_give_up_seconds", String(Number(document.getElementById("busy-giveup").value)));
+  if (file) form.append("file", file);
+  const res = await fetch(
+    isNew ? "/api/announcements/audio" : `/api/announcements/${editingAnnouncementId}/audio`,
+    { method: isNew ? "POST" : "PUT", body: form },
+  );
+  if (!res.ok) {
+    showError("announcement-error", await errorDetail(res));
     return;
   }
   clearEditorGuard();
@@ -2762,6 +3144,10 @@ async function speakLibraryItem(item) {
     });
     return;
   }
+  if (item.kind === "audio") {
+    await playAudioAnnouncement(item.id, { totalSeconds: item.play_seconds });
+    return;
+  }
   await speakWithParams({
     text: item.text || "",
     voice: item.voice || voiceEl.value,
@@ -2769,6 +3155,134 @@ async function speakLibraryItem(item) {
     sentence_pause: Number(item.sentence_pause ?? 0.25),
     use_phoneme_dictionary: item.use_phoneme_dictionary !== false,
   });
+}
+
+/** @type {HTMLAudioElement|null} */
+let audioPreviewEl = null;
+/** @type {ReturnType<typeof setInterval>|null} */
+let htmlAudioClock = null;
+
+function stopHtmlAudioClock() {
+  if (htmlAudioClock == null) return;
+  clearInterval(htmlAudioClock);
+  htmlAudioClock = null;
+}
+
+/**
+ * @param {HTMLAudioElement} audioEl
+ * @param {number} [totalHint]
+ */
+function startHtmlAudioClock(audioEl, totalHint = 0) {
+  stopHtmlAudioClock();
+  const tick = () => {
+    if (!audioPreviewEl || audioPreviewEl !== audioEl) {
+      stopHtmlAudioClock();
+      return;
+    }
+    const elapsed = audioEl.currentTime || 0;
+    let total = audioEl.duration;
+    if (!Number.isFinite(total) || total <= 0) total = Number(totalHint) || 0;
+    if (!Number.isFinite(total) || total < 0) total = 0;
+    setStatus(playingStatus(elapsed, total), "playing");
+  };
+  tick();
+  htmlAudioClock = setInterval(tick, 1000);
+}
+
+function stopAudioPreview() {
+  stopHtmlAudioClock();
+  if (audioPreviewEl) {
+    audioPreviewEl.pause();
+    audioPreviewEl.removeAttribute("src");
+    audioPreviewEl.load();
+    audioPreviewEl = null;
+  }
+  setEditorPlaying(false);
+  syncLibraryPlaybackButtons();
+  showKnownPlayLength();
+}
+
+/**
+ * @param {string} announcementId
+ * @param {{ totalSeconds?: number|null }} [opts]
+ */
+async function playAudioAnnouncement(announcementId, opts = {}) {
+  if (!announcementId) return;
+  stop();
+  stopAudioPreview();
+  const hint = Number(opts.totalSeconds);
+  const totalHint =
+    Number.isFinite(hint) && hint > 0
+      ? hint
+      : editorPlaySeconds != null && editorPlaySeconds > 0
+        ? editorPlaySeconds
+        : 0;
+  const el = new Audio(`/api/announcements/${announcementId}/audio`);
+  audioPreviewEl = el;
+  setEditorPlaying(true);
+  syncLibraryPlaybackButtons();
+  setStatus(playingStatus(0, totalHint), "playing");
+  startHtmlAudioClock(el, totalHint);
+  el.addEventListener("loadedmetadata", () => {
+    if (audioPreviewEl === el) startHtmlAudioClock(el, totalHint);
+  });
+  el.addEventListener("ended", () => stopAudioPreview());
+  el.addEventListener("error", () => {
+    stopAudioPreview();
+    window.alert("Could not play audio file");
+  });
+  try {
+    await el.play();
+  } catch (err) {
+    stopAudioPreview();
+    throw err;
+  }
+}
+
+async function playEditorAudio() {
+  if (editingAnnouncementId) {
+    const hint =
+      audioFileCheck?.duration ??
+      editorPlaySeconds ??
+      null;
+    await playAudioAnnouncement(editingAnnouncementId, { totalSeconds: hint });
+    return;
+  }
+  const fileInput = document.getElementById("audio-file");
+  const file = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+  if (!file) {
+    window.alert("Choose an MP3 file first.");
+    return;
+  }
+  stop();
+  stopAudioPreview();
+  const url = URL.createObjectURL(file);
+  const hint = Number(audioFileCheck?.duration);
+  const totalHint = Number.isFinite(hint) && hint > 0 ? hint : 0;
+  const el = new Audio(url);
+  audioPreviewEl = el;
+  setEditorPlaying(true);
+  syncLibraryPlaybackButtons();
+  setStatus(playingStatus(0, totalHint), "playing");
+  startHtmlAudioClock(el, totalHint);
+  const cleanup = () => {
+    URL.revokeObjectURL(url);
+    stopAudioPreview();
+  };
+  el.addEventListener("loadedmetadata", () => {
+    if (audioPreviewEl === el) startHtmlAudioClock(el, totalHint);
+  });
+  el.addEventListener("ended", cleanup);
+  el.addEventListener("error", () => {
+    cleanup();
+    window.alert("Could not play audio file");
+  });
+  try {
+    await el.play();
+  } catch (err) {
+    cleanup();
+    throw err;
+  }
 }
 
 function pttLeadSeconds() {
@@ -2946,8 +3460,10 @@ async function playNewsline(opts) {
 }
 
 function stopEditorPlayback() {
-  const hadPlayback = Boolean(abort || player || editorPlaying);
-  if (!hadPlayback) return false;
+  const hadAudio = Boolean(audioPreviewEl);
+  if (hadAudio) stopAudioPreview();
+  const hadPlayback = Boolean(abort || player || editorPlaying || hadAudio);
+  if (!hadPlayback && !hadAudio) return false;
   cancelInFlight();
   setEditorPlaying(false);
   showKnownPlayLength();
@@ -3352,6 +3868,7 @@ function readConfigForm() {
     busy_retry_seconds: Number(document.getElementById("cfg-busy-retry").value),
     busy_give_up_seconds: Number(document.getElementById("cfg-busy-give-up").value),
     max_text_chars: Number(document.getElementById("cfg-max-chars").value),
+    audio_announcement_max_bytes: Number(document.getElementById("cfg-audio-max-bytes").value),
     piper_qualities: document.getElementById("cfg-qualities").value,
     timezone: document.getElementById("cfg-timezone").value.trim(),
     slot_lookahead_hours: Number(document.getElementById("cfg-lookahead").value),
@@ -3380,6 +3897,9 @@ function fillConfigForm(values) {
   document.getElementById("cfg-busy-retry").value = String(values.busy_retry_seconds ?? "");
   document.getElementById("cfg-busy-give-up").value = String(values.busy_give_up_seconds ?? "");
   document.getElementById("cfg-max-chars").value = String(values.max_text_chars ?? "");
+  document.getElementById("cfg-audio-max-bytes").value = String(
+    values.audio_announcement_max_bytes ?? "",
+  );
   document.getElementById("cfg-timezone").value = values.timezone || "";
   document.getElementById("cfg-lookahead").value = String(values.slot_lookahead_hours ?? "");
   document.getElementById("cfg-max-wait").value = String(values.scheduler_max_wait_seconds ?? "");
@@ -4035,7 +4555,11 @@ async function playPhonemePreview(text, status) {
       return;
     }
     const sampleRate = Number(res.headers.get("X-Sample-Rate") || "22050");
-    await currentPlayer.play(res.body, sampleRate, controller.signal, { totalSeconds: 0 });
+    const totalSeconds = Number(res.headers.get("X-Play-Seconds") || "0");
+    const knownTotal = Number.isFinite(totalSeconds) && totalSeconds > 0 ? totalSeconds : 0;
+    await currentPlayer.play(res.body, sampleRate, controller.signal, {
+      totalSeconds: knownTotal,
+    });
     if (mySession === session) setPhonemeStatus("Ready");
   } catch (err) {
     if (mySession !== session) return;
@@ -4480,6 +5004,17 @@ if (manualDropDismiss) {
 }
 
 document.getElementById("announcement-kind").addEventListener("change", syncAnnouncementKind);
+document.getElementById("audio-file").addEventListener("change", () => {
+  inspectSelectedAudioFile().catch((err) => {
+    showError("announcement-error", err.message || "Could not read audio file");
+    syncEditorSave();
+  });
+});
+document.getElementById("audio-play").addEventListener("click", () => {
+  if (!audioPlayAllowed()) return;
+  playEditorAudio().catch((err) => window.alert(err.message || "Could not play"));
+});
+document.getElementById("audio-stop").addEventListener("click", () => stop());
 
 for (const id of ["view-announcement", "view-schedule"]) {
   const view = document.getElementById(id);

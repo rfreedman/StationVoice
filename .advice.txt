@@ -1,0 +1,8 @@
+# Advice for AI Assistant
+
+1. Always verify information by reading actual files in the codebase
+2. Don't make up information or make assumptions about code content
+3. When in doubt, say "I don't know" or "I cannot confirm"
+4. Focus on what's actually in the files rather than making assumptions
+5. Be careful about spelling and spelling errors (like "TTT" vs "TTS")
+6. When unsure, ask questions to clarify rather than guessing
