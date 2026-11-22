@@ -40,6 +40,7 @@ const PTT_TONE_SECONDS = 0.2;
  * @property {number} [busy_give_up_seconds]
  * @property {number} [max_busy_give_up_seconds]
  * @property {number} [ptt_lead_seconds]
+ * @property {string} [default_announcement_text]
  */
 
 /**
@@ -2897,6 +2898,7 @@ async function loadVoices() {
   const res = await fetch("/api/voices");
   if (!res.ok) throw new Error("Could not load voices");
   catalog = await res.json();
+  defaultScript = (catalog.default_announcement_text || "").trim();
   applyBrandingFromCatalog();
   const saved = readPrefs();
   speedEl.value = String(saved.speed ?? catalog.speed ?? 1);
@@ -2908,12 +2910,6 @@ async function loadVoices() {
 async function ensureVoices() {
   if (catalog) return;
   await loadVoices();
-}
-
-async function loadDefaultScript() {
-  const res = await fetch("/static/default-announcement.txt");
-  if (!res.ok) return;
-  defaultScript = (await res.text()).trim();
 }
 
 function newAnnouncementDefaults() {
@@ -4074,6 +4070,8 @@ async function refreshAdminConfig() {
   document.getElementById("cfg-admin-emails").value = emailPlugin
     ? payload.admin_emails || ""
     : "";
+  document.getElementById("cfg-default-announcement").value =
+    payload.default_announcement_text || "";
   document.getElementById("cfg-short").value = "";
   document.getElementById("cfg-long").value = "";
   const when = formatSavedAt(current.saved_at, values.timezone);
@@ -4233,6 +4231,7 @@ async function saveAdminConfig() {
       admin_email_notifications: alertsHidden
         ? null
         : document.getElementById("cfg-admin-email-notifications").checked,
+      default_announcement_text: document.getElementById("cfg-default-announcement").value,
     }),
   });
   let payload = {};
@@ -5244,7 +5243,6 @@ window.addEventListener("beforeunload", (event) => {
   event.returnValue = "";
 });
 
-boot = loadDefaultScript();
 updateCount();
 updateDeliveryLabels();
 updateAuthChrome();

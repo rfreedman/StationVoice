@@ -39,6 +39,7 @@ class VoicesPayload(TypedDict):
     station_call: str
     station_name: str
     app_title: str
+    default_announcement_text: str
     voices: list[VoiceDict]
 
 

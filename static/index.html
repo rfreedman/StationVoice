@@ -256,6 +256,11 @@
               <label class="label" for="cfg-pause">Sentence pause (seconds)</label>
               <input id="cfg-pause" type="number" min="0" max="2" step="0.05" />
             </section>
+            <section class="voice-row">
+              <label class="label" for="cfg-default-announcement">Default announcement text</label>
+              <textarea id="cfg-default-announcement" rows="4" maxlength="20000" spellcheck="true"></textarea>
+              <p class="lede tight">Prefills the script for new TTS announcements. Leave as <code>This is {station call}</code> to follow the station call; any other text is saved under the data directory and overrides that.</p>
+            </section>
           </section>
 
             <section class="panel">

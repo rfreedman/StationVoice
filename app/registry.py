@@ -56,6 +56,8 @@ class EngineRegistry:
         return voice_id, rate, materialize_chunks(chunks)
 
     def voices_payload(self) -> VoicesPayload:
+        from app.default_announcement import effective_text
+
         return {
             "default_voice": self.engine.default_voice_id(),
             "ready": self.engine.is_ready(),
@@ -70,6 +72,7 @@ class EngineRegistry:
             "station_call": app_config.STATION_CALL,
             "station_name": app_config.STATION_NAME,
             "app_title": app_config.APP_TITLE,
+            "default_announcement_text": effective_text(),
             "voices": [voice.to_dict() for voice in self.engine.list_voices()],
         }
 

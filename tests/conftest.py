@@ -119,6 +119,9 @@ def isolate_admin_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("TTS_SECRETS_DOTENV_PATH", str(tmp_path / "runtime.secrets.env"))
     monkeypatch.setenv("TTS_CONFIG_HISTORY_PATH", str(tmp_path / "config_history.json"))
     monkeypatch.setenv("TTS_BRANDING_DIR", str(tmp_path / "branding"))
+    monkeypatch.setenv(
+        "TTS_DEFAULT_ANNOUNCEMENT_PATH", str(tmp_path / "default-announcement.txt")
+    )
 
 
 @pytest.fixture(autouse=True)

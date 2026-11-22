@@ -181,6 +181,9 @@ class ConfigState(BaseModel):
     radio_mode_active: str = "stub"
     radio_fallback_reason: str | None = None
     systemd_unit: str = "dvra-announcements"
+    # Prefill for new TTS announcements; data/ override, else "This is {STATION_CALL}".
+    # Not part of configuration history / revert.
+    default_announcement_text: str = ""
 
 
 def config_generation() -> int:
@@ -368,6 +371,7 @@ def revert_config(entry_id: str) -> tuple[ConfigHistoryFile, bool]:
 
 def config_state(document: ConfigHistoryFile, *, changed: bool) -> ConfigState:
     from app.config import radio_backend, systemd_unit_name
+    from app.default_announcement import effective_text
     from app.notify_email import admin_email_plugin_active
     from app.radio import active_radio_mode_label
     from app.runtime import get_runtime
@@ -404,6 +408,7 @@ def config_state(document: ConfigHistoryFile, *, changed: bool) -> ConfigState:
         radio_mode_active=active_radio_mode_label(),
         radio_fallback_reason=get_runtime().radio_fallback_reason,
         systemd_unit=systemd_unit_name(),
+        default_announcement_text=effective_text(),
     )
 
 

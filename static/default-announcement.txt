@@ -1,6 +1,0 @@
-This is w2-zee-queue [pause:0.5]
-
-Your announcement goes here.
-
-[pause:0.5]
-w2-zee-q

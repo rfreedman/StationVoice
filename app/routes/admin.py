@@ -52,6 +52,8 @@ class ConfigSaveIn(BaseModel):
     long_description: str = ""
     admin_emails: str = ""
     admin_email_notifications: bool | None = None
+    # Companion to config (like admin_emails); not stored in history. None = leave as-is.
+    default_announcement_text: str | None = None
 
 
 class ConfigRevertIn(BaseModel):
@@ -101,9 +103,15 @@ def get_admin_config(_admin: AdminUser) -> ConfigState:
 
 @router.post("/api/admin/config")
 def post_admin_config(body: ConfigSaveIn, _admin: AdminUser) -> ConfigState:
+    from app.config import enforce_text_limit
+    from app.default_announcement import save_text as save_default_announcement_text
+
     try:
         short = clean_short(body.short_description)
         long = clean_long(body.long_description)
+        # Validate before applying config so a too-long script does not leave a partial save.
+        if body.default_announcement_text is not None:
+            _ = enforce_text_limit(body.default_announcement_text.strip())
         document = save_config(
             body.values,
             short,
@@ -111,6 +119,9 @@ def post_admin_config(body: ConfigSaveIn, _admin: AdminUser) -> ConfigState:
             admin_emails=body.admin_emails,
             admin_email_notifications=body.admin_email_notifications,
         )
+        # After apply so builtin compares against the new STATION_CALL when both change.
+        if body.default_announcement_text is not None:
+            save_default_announcement_text(body.default_announcement_text)
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail=_validation_detail(exc)) from exc
     except ValueError as exc:
