@@ -36,8 +36,7 @@ This is the result, and what will be put on the air soon.
 
 
 ## License
-
-[![License: GPL v3](https://img.shields.io)](https://gnu.org)
+[![License: GPL v3](https://img.shields.io/static/v1?label=License&message=GPL%20v3&color=blue)](https://gnu.org)
 
 This project is licensed under the **GNU General Public License v3.0 or later (GPL-3.0-or-later)** — see the [LICENSE](LICENSE) file for details.
 
