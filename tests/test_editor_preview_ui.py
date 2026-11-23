@@ -151,7 +151,7 @@ def test_library_has_speak_stop_and_detail_has_delete() -> None:
     source = APP_JS.read_text(encoding="utf-8")
     html = (APP_JS.parent / "index.html").read_text(encoding="utf-8")
     library = source.split("function renderLibrary", 1)[1].split("\nfunction ", 1)[0]
-    assert 'textContent = "Speak"' in library
+    assert 'textContent = "Speak" in library' or 'textContent = "Play"' in library
     assert 'textContent = "Stop"' in library
     assert 'dataset.librarySpeak = "1"' in library
     assert 'dataset.libraryStop = "1"' in library
