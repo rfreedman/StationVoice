@@ -34,16 +34,6 @@ This is the result, and what will be put on the air soon.
 
 - Rich, N2EHL 2026-11-18
 
-
-## License
-[![License: GPL v3](https://img.shields.io/static/v1?label=License&message=GPL%20v3&color=blue)](https://gnu.org)
-
-This project is licensed under the **GNU General Public License v3.0 or later (GPL-3.0-or-later)** — see the [LICENSE](LICENSE) file for details.
-
-### Third-Party Licenses
-This project incorporates third-party libraries, including [`piper-tts`](https://github.com) (licensed under `GPL-3.0-or-later`), along with various permissively licensed dependencies (MIT, BSD, Apache 2.0).
-
-
 ## Features
  * **MultiPort** - **StationVoice** runs on a Linux computer, and uses 
  <a href="https://www.masterscommunications.com/products/radio-adapter/dra/dra36m.html">Masters Communications DRA-36M interfaces to control the radios</a>. The DRA-36M
@@ -77,3 +67,17 @@ This project incorporates third-party libraries, including [`piper-tts`](https:/
  - Scheduling - coming soon
  - Advanced Text-to-Speech - coming soon
  - Amateur Radio Newsline - coming soon
+
+
+
+
+
+
+
+## License
+[![License: GPL v3](https://img.shields.io/static/v1?label=License&message=GPL%20v3&color=blue)](https://gnu.org)
+
+This project is licensed under the **GNU General Public License v3.0 or later (GPL-3.0-or-later)** — see the [LICENSE](LICENSE) file for details.
+
+### Third-Party Licenses
+This project incorporates third-party libraries, including [`piper-tts`](https://github.com) (licensed under `GPL-3.0-or-later`), along with various permissively licensed dependencies (MIT, BSD, Apache 2.0).
