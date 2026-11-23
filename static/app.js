@@ -2386,7 +2386,13 @@ function renderLibrary(items) {
     const speakBtn = document.createElement("button");
     speakBtn.type = "button";
     speakBtn.className = "ghost";
-    speakBtn.textContent = "Speak";
+
+    if(item.kind === 'tts') {
+      speakBtn.textContent = 'Speak';
+    } else {
+      speakBtn.textContent = "Play";
+    }
+
     speakBtn.dataset.librarySpeak = "1";
     speakBtn.disabled = editorPlaying;
     speakBtn.addEventListener("click", (event) => {
