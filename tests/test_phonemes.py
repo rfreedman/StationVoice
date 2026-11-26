@@ -195,8 +195,11 @@ def test_fingerprint_includes_dictionary_only_when_enabled() -> None:
     assert on_a != off_a
 
 
-def test_dictionary_api_is_admin_only_for_writes(
-    client: TestClient, readonly_client: TestClient, monkeypatch: pytest.MonkeyPatch
+def test_dictionary_api_requires_edit_access_for_writes(
+    client: TestClient,
+    editor_client: TestClient,
+    readonly_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("app.routes.phonemes.schedule_dictionary_refresh", lambda: None)
     denied = readonly_client.put(
@@ -204,6 +207,14 @@ def test_dictionary_api_is_admin_only_for_writes(
         json={"entries": [{"spelling": "Delaware", "ipa": _IPA}]},
     )
     assert denied.status_code == 403
+    editor_saved = editor_client.put(
+        "/api/phonemes",
+        json={"entries": [{"spelling": "Editor", "ipa": _IPA}]},
+    )
+    assert editor_saved.status_code == 200
+    assert editor_saved.json()["entries"] == [
+        {"spelling": "Editor", "ipa": _IPA, "alternate": ""}
+    ]
     saved = client.put(
         "/api/phonemes",
         json={"entries": [{"spelling": "  Delaware  ", "ipa": f"  {_IPA}  "}]},

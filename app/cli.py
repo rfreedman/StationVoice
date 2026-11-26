@@ -84,7 +84,7 @@ def main(argv: list[str] | None = None) -> int:
     _ = create.add_argument("--password", help="Password (prompted if omitted)")
     _ = create.add_argument(
         "--role",
-        choices=("admin", "readonly"),
+        choices=("admin", "editor", "readonly"),
         default="readonly",
         help="Role (default: readonly)",
     )

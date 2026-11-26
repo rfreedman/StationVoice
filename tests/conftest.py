@@ -303,6 +303,15 @@ def readonly_user(users: UserStore) -> User:
 
 
 @pytest.fixture
+def editor_user(users: UserStore) -> User:
+    return users.create(
+        username="editor",
+        password_hash=hash_password(ADMIN_PASSWORD),
+        role="editor",
+    )
+
+
+@pytest.fixture
 def client(store: AnnouncementStore, admin_user: User) -> Iterator[TestClient]:
     _ = store
     _ = admin_user
@@ -326,6 +335,22 @@ def readonly_client(
         res = test_client.post(
             "/api/auth/login",
             json={"username": "viewer", "password": ADMIN_PASSWORD},
+        )
+        assert res.status_code == 200
+        yield test_client
+
+
+@pytest.fixture
+def editor_client(
+    store: AnnouncementStore, admin_user: User, editor_user: User
+) -> Iterator[TestClient]:
+    _ = store
+    _ = admin_user
+    _ = editor_user
+    with TestClient(app) as test_client:
+        res = test_client.post(
+            "/api/auth/login",
+            json={"username": "editor", "password": ADMIN_PASSWORD},
         )
         assert res.status_code == 200
         yield test_client

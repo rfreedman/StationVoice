@@ -159,6 +159,45 @@ def test_readonly_cannot_trigger(readonly_client: TestClient, store: Announcemen
     assert res.status_code == 403
 
 
+def test_editor_can_mutate_but_not_admin(
+    editor_client: TestClient, store: AnnouncementStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.models import BaselineSchedule, TtsAnnouncement
+
+    created = editor_client.post(
+        "/api/announcements",
+        json={"name": "Editor ID", "text": "Hello from editor."},
+    )
+    assert created.status_code == 200
+    announcement_id = json_dict(created)["id"]
+    assert isinstance(announcement_id, str)
+
+    updated = editor_client.put(
+        f"/api/announcements/{announcement_id}",
+        json={"name": "Editor ID", "text": "Updated by editor."},
+    )
+    assert updated.status_code == 200
+    assert (
+        editor_client.put(
+            "/api/settings",
+            json={"baseline_randomize": True},
+        ).status_code
+        == 200
+    )
+
+    monkeypatch.setattr("app.config.TRIGGER_NOW", True)
+    announcement = store.save_announcement(TtsAnnouncement(name="Trigger", text="Hello."))
+    schedule = store.save_schedule(
+        BaselineSchedule(name="Baseline", announcement_id=announcement.id)
+    )
+    assert editor_client.post(f"/api/schedules/{schedule.id}/trigger").status_code == 200
+
+    assert editor_client.get("/api/users").status_code == 403
+    assert editor_client.get("/api/admin/config").status_code == 403
+    assert editor_client.post("/api/admin/restart").status_code == 403
+    assert editor_client.delete(f"/api/announcements/{announcement_id}").status_code == 200
+
+
 def test_admin_user_management(client: TestClient, users: UserStore, admin_user: User) -> None:
     _ = users
     created = client.post(

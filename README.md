@@ -36,6 +36,9 @@ At the DVRA, the system is used to transmit the same scheduled announcements to 
 
 - **Channel-aware operation:** Monitor activity on the repeater's output frequency, and defer transmissions when busy.
 
+## What StationVoice is Not
+StationVoice is not a Repeater Controller. It does **not** provide the FCC-mandated station ID which is required at least every 10 minutes during active communications. This is typically the job of a Repeater Controller. In fact, if your repeater is fairly inactive, your repeater controller is likely to play it's station ID immediately after one of StationVoice's announcements finishes.
+
 ## How it works
 
 StationVoice runs on a Linux computer and uses a local web application to manage announcements and schedules. At the scheduled times, the application prepares the announcement and sends audio to a radio via a DRA-36M interface. The radio transmits on the repeater's input frequency, and listens on the repeater's output frequency to determine when the repeater is "Busy".
@@ -75,5 +78,5 @@ See these links for installing the hardware and software to run StationVoice:
 StationVoice is an evolving project. The production radio configuration and hardware verification documented in this repository reflect testing at the DVRA.
 
 ## License
-
+[![License: GPL v3](https://img.shields.io/static/v1?label=License&message=GPL%20v3&color=blue)](https://gnu.org)
 StationVoice is licensed under the **GNU General Public License v3.0 or later**. See [LICENSE](LICENSE).

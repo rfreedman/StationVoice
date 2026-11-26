@@ -147,6 +147,12 @@ def require_admin(user: Annotated[User, Depends(require_user)]) -> User:
     return user
 
 
+def require_editor(user: Annotated[User, Depends(require_user)]) -> User:
+    if not can_edit(user.role):
+        raise HTTPException(status_code=403, detail="Edit access required")
+    return user
+
+
 def authenticate(username: str, password: str) -> User | None:
     user = get_user_store().by_username(username)
     if user is None:
@@ -158,3 +164,7 @@ def authenticate(username: str, password: str) -> User | None:
 
 def is_admin(role: Role | str) -> bool:
     return role == "admin"
+
+
+def can_edit(role: Role | str) -> bool:
+    return role in ("admin", "editor")

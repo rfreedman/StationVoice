@@ -11,7 +11,7 @@ from app.config import USERS_PATH
 from app.models import new_id
 from app.json_io import read_versioned_json, write_json_atomic
 
-Role = Literal["admin", "readonly"]
+Role = Literal["admin", "editor", "readonly"]
 
 
 class PublicUser(TypedDict):

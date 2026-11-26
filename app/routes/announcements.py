@@ -22,7 +22,7 @@ from app.config import (
     DEFAULT_BUSY_RETRY_SECONDS,
     REPEATER_TIMEOUT_SECONDS,
 )
-from app.deps import AdminUser, AuthUser
+from app.deps import AuthUser, EditorUser
 from app.live_notify import notify_home_data_changed
 from app.model_common import new_id
 from app.models import Announcement, AudioAnnouncement, validate_announcement
@@ -251,7 +251,7 @@ def get_announcement_audio(announcement_id: str, _user: AuthUser) -> FileRespons
 
 @router.post("/api/announcements/audio")
 async def create_audio_announcement(
-    _admin: AdminUser,
+    _editor: EditorUser,
     name: Annotated[str, Form()],
     file: Annotated[UploadFile, File()],
     busy_retry_seconds: Annotated[float, Form()] = DEFAULT_BUSY_RETRY_SECONDS,
@@ -276,7 +276,7 @@ async def create_audio_announcement(
 @router.put("/api/announcements/{announcement_id}/audio")
 async def update_audio_announcement(
     announcement_id: str,
-    _admin: AdminUser,
+    _editor: EditorUser,
     name: Annotated[str, Form()],
     file: Annotated[UploadFile | None, File()] = None,
     busy_retry_seconds: Annotated[float, Form()] = DEFAULT_BUSY_RETRY_SECONDS,
@@ -308,7 +308,7 @@ async def update_audio_announcement(
 
 
 @router.post("/api/announcements")
-def create_announcement(req: AnnouncementIn, _admin: AdminUser) -> Announcement:
+def create_announcement(req: AnnouncementIn, _editor: EditorUser) -> Announcement:
     item = _from_request(req, None)
     stored = get_store().save_announcement(item)
     _warm_in_background(stored)
@@ -318,7 +318,7 @@ def create_announcement(req: AnnouncementIn, _admin: AdminUser) -> Announcement:
 
 @router.put("/api/announcements/{announcement_id}")
 def update_announcement(
-    announcement_id: str, req: AnnouncementIn, _admin: AdminUser
+    announcement_id: str, req: AnnouncementIn, _editor: EditorUser
 ) -> Announcement:
     store = get_store()
     existing = store.get(announcement_id)
@@ -335,7 +335,7 @@ def update_announcement(
 
 
 @router.delete("/api/announcements/{announcement_id}")
-def delete_announcement(announcement_id: str, _admin: AdminUser) -> dict[str, bool]:
+def delete_announcement(announcement_id: str, _editor: EditorUser) -> dict[str, bool]:
     existing = get_store().get(announcement_id)
     try:
         if not get_store().delete_announcement(announcement_id):

@@ -63,12 +63,17 @@ def _png(width: int, height: int, color: tuple[int, int, int] = (20, 80, 40)) ->
 
 
 def test_admin_config_is_admin_only(
-    store: AnnouncementStore, users: UserStore, readonly_client: TestClient
+    store: AnnouncementStore,
+    users: UserStore,
+    readonly_client: TestClient,
+    editor_client: TestClient,
 ) -> None:
     _ = store
     _ = users
     assert readonly_client.get("/api/admin/config").status_code == 403
     assert readonly_client.post("/api/admin/config", json={}).status_code == 403
+    assert editor_client.get("/api/admin/config").status_code == 403
+    assert editor_client.post("/api/admin/config", json={}).status_code == 403
     with TestClient(app) as anon:
         assert anon.get("/api/admin/config").status_code == 401
         logo = anon.get("/branding/logo")
@@ -542,11 +547,15 @@ def test_admin_config_includes_radio_mode(client: TestClient) -> None:
 
 
 def test_admin_restart_is_admin_only(
-    store: AnnouncementStore, users: UserStore, readonly_client: TestClient
+    store: AnnouncementStore,
+    users: UserStore,
+    readonly_client: TestClient,
+    editor_client: TestClient,
 ) -> None:
     _ = store
     _ = users
     assert readonly_client.post("/api/admin/restart").status_code == 403
+    assert editor_client.post("/api/admin/restart").status_code == 403
     with TestClient(app) as anon:
         assert anon.post("/api/admin/restart").status_code == 401
 

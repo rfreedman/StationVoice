@@ -12,7 +12,7 @@ from collections.abc import AsyncIterator, Callable, Iterator
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from app.deps import AdminUser, AuthUser
+from app.deps import AuthUser, EditorUser
 from app.live_notify import notify_home_data_changed, notify_home_live_status
 from app.newsline.notices import clear_skip_notice
 from app.newsline.poll import start_manual_check, submit_manual_split_choice
@@ -25,7 +25,7 @@ log = logging.getLogger("app.routes.newsline")
 
 
 @router.post("/api/newsline/check")
-def check_newsline_now(_admin: AdminUser) -> dict[str, str]:
+def check_newsline_now(_editor: EditorUser) -> dict[str, str]:
     from app.newsline.session import bulletin_session
 
     if bulletin_session.active:
@@ -40,7 +40,7 @@ def check_newsline_now(_admin: AdminUser) -> dict[str, str]:
 
 
 @router.post("/api/newsline/check/choice")
-def newsline_check_choice(body: NewslineCheckChoiceIn, _admin: AdminUser) -> dict[str, str]:
+def newsline_check_choice(body: NewslineCheckChoiceIn, _editor: EditorUser) -> dict[str, str]:
     if not submit_manual_split_choice(body.action):
         raise HTTPException(
             status_code=409,
@@ -51,7 +51,7 @@ def newsline_check_choice(body: NewslineCheckChoiceIn, _admin: AdminUser) -> dic
 
 
 @router.post("/api/skip-notice/dismiss")
-def dismiss_skip_notice(_admin: AdminUser) -> dict[str, bool]:
+def dismiss_skip_notice(_editor: EditorUser) -> dict[str, bool]:
     clear_skip_notice()
     notify_home_live_status(force=True)
     return {"ok": True}

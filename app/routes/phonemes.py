@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.config import TEXT_CHARS_CEILING, enforce_text_limit
-from app.deps import AdminUser, AuthUser
+from app.deps import AuthUser, EditorUser
 from app.json_io import DataFileError
 from app.model_common import normalize_announcement_text
 from app.notify_email import alert_admins
@@ -120,7 +120,7 @@ def list_phonemes(_user: AuthUser) -> PhonemeDictionaryOut:
 
 
 @router.put("/api/phonemes")
-def replace_phonemes(body: PhonemeDictionaryIn, _admin: AdminUser) -> PhonemeDictionaryOut:
+def replace_phonemes(body: PhonemeDictionaryIn, _editor: EditorUser) -> PhonemeDictionaryOut:
     try:
         entries = get_phoneme_dictionary().replace(_rows(body.entries))
     except PhonemeTextError as exc:

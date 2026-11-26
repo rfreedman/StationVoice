@@ -62,7 +62,7 @@ Open:
 
 [http://127.0.0.1:8000](http://127.0.0.1:8000)
 
-The first visit allows initial Admin account setup. After setup, Admin users have full access. Read-Only users can access the permitted viewing and speech-preview functions.
+The first visit allows initial Admin account setup. After setup there are three roles: **Admin** (full access, including user and environment management), **Editor** (all content and settings features except the Admin section), and **Read-Only** (view and speech preview only). See [User roles](../docs/user-roles.md).
 
 ## Basic workflow
 

@@ -19,7 +19,7 @@ from app.api_types import (
     schedule_meta,
     settings_payload,
 )
-from app.deps import AdminUser, AuthUser
+from app.deps import AuthUser, EditorUser
 from app.home_live import build_home_live_status
 from app.live_notify import notify_home_data_changed, notify_home_live_status
 from app.models import Schedule, Settings, StoreDocument, validate_schedule
@@ -147,7 +147,7 @@ def get_settings(_user: AuthUser) -> Settings:
 
 
 @router.put("/api/settings")
-def put_settings(req: SettingsIn, _admin: AdminUser) -> Settings:
+def put_settings(req: SettingsIn, _editor: EditorUser) -> Settings:
     store = get_store()
     current = store.document().settings
     data = current.model_dump()
@@ -205,14 +205,14 @@ def list_schedules(_user: AuthUser, clock_date: date | None = None) -> Schedules
 
 
 @router.post("/api/manual-trigger-drop/dismiss")
-def dismiss_manual_trigger_drop(_admin: AdminUser) -> dict[str, bool]:
+def dismiss_manual_trigger_drop(_editor: EditorUser) -> dict[str, bool]:
     clear_manual_trigger_drop_notice()
     notify_home_live_status(force=True)
     return {"ok": True}
 
 
 @router.post("/api/schedules")
-def create_schedule(req: ScheduleIn, _admin: AdminUser) -> Schedule:
+def create_schedule(req: ScheduleIn, _editor: EditorUser) -> Schedule:
     incoming = _build_schedule(req)
     _reject_schedule(incoming)
     stored = get_store().save_schedule(incoming)
@@ -234,7 +234,7 @@ def get_schedule(schedule_id: str, _user: AuthUser) -> ScheduleDetail:
 
 
 @router.put("/api/schedules/{schedule_id}")
-def replace_schedule(schedule_id: str, req: ScheduleIn, _admin: AdminUser) -> Schedule:
+def replace_schedule(schedule_id: str, req: ScheduleIn, _editor: EditorUser) -> Schedule:
     payload = req.model_copy(update={"id": schedule_id})
     incoming = _build_schedule(payload)
     if get_store().get_schedule(schedule_id) is None:
@@ -247,7 +247,7 @@ def replace_schedule(schedule_id: str, req: ScheduleIn, _admin: AdminUser) -> Sc
 
 
 @router.patch("/api/schedules/{schedule_id}")
-def patch_schedule(schedule_id: str, req: SchedulePatch, _admin: AdminUser) -> Schedule:
+def patch_schedule(schedule_id: str, req: SchedulePatch, _editor: EditorUser) -> Schedule:
     store = get_store()
     schedule = store.get_schedule(schedule_id)
     if schedule is None:
@@ -265,7 +265,7 @@ def patch_schedule(schedule_id: str, req: SchedulePatch, _admin: AdminUser) -> S
 
 
 @router.post("/api/schedules/{schedule_id}/trigger")
-def trigger_schedule_now(schedule_id: str, _admin: AdminUser) -> TriggerResult:
+def trigger_schedule_now(schedule_id: str, _editor: EditorUser) -> TriggerResult:
     if not config.TRIGGER_NOW:
         raise HTTPException(status_code=404, detail="Not found")
     if get_store().get_schedule(schedule_id) is None:
@@ -293,7 +293,7 @@ def trigger_schedule_now(schedule_id: str, _admin: AdminUser) -> TriggerResult:
 
 
 @router.delete("/api/schedules/{schedule_id}")
-def delete_schedule(schedule_id: str, _admin: AdminUser) -> dict[str, bool]:
+def delete_schedule(schedule_id: str, _editor: EditorUser) -> dict[str, bool]:
     if not get_store().delete_schedule(schedule_id):
         raise HTTPException(status_code=404, detail="Schedule not found")
     sync_jobs()

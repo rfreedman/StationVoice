@@ -307,6 +307,12 @@ function isAdmin() {
   return currentUser?.role === "admin";
 }
 
+function roleLabel(role) {
+  if (role === "admin") return "Admin";
+  if (role === "editor") return "Editor";
+  return "Read-Only";
+}
+
 function setError(id, message) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -521,7 +527,7 @@ async function refreshUsers() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(user.username)}</td>
-      <td>${escapeHtml(user.role === "admin" ? "Admin" : "Read-Only")}</td>
+      <td>${escapeHtml(roleLabel(user.role))}</td>
       <td class="row-actions"></td>
     `;
     const edit = document.createElement("button");
