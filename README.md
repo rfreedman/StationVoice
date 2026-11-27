@@ -75,7 +75,7 @@ See these links for installing the hardware and software to run StationVoice:
 
 ## Status
 
-StationVoice is an evolving project. The production radio configuration and hardware verification documented in this repository reflect testing at the DVRA.
+StationVoice is an evolving project. The production radio configuration and hardware verification documented in this repository reflect testing and actual usage at the DVRA.
 
 ## License
 [![License: GPL v3](https://img.shields.io/static/v1?label=License&message=GPL%20v3&color=blue)](https://gnu.org)
