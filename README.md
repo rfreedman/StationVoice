@@ -10,9 +10,12 @@
 
 **StationVoice** is a software-based announcement system for 
 <a href="https://en.wikipedia.org/wiki/Amateur_radio_repeater" target="_blank">Amateur Radio repeaters</a>. 
-It combines scheduled announcements, text-to-speech (TTS), audio playback, and radio control in a local-network application managed via web browser.
+It combines scheduled announcements, text-to-speech (TTS), audio playback, and radio control in a local-network 
+application managed via web browser.
 
-Developed for the <a href="https://w2zq.com" target="_blank">Delaware Valley Radio Association (DVRA)</a>, StationVoice was designed to transmit announcements across multiple repeaters while offering more natural speech and flexible scheduling than other announcement controllers, and centralized administration.
+Developed for the <a href="https://w2zq.com" target="_blank">Delaware Valley Radio Association (DVRA)</a>, 
+StationVoice was designed to transmit announcements across multiple repeaters while offering more natural 
+speech and flexible scheduling than other announcement controllers.
 
 ## Why StationVoice?
 
@@ -41,14 +44,17 @@ StationVoice is not a Repeater Controller. It does **not** provide the FCC-manda
 
 ## How it works
 
-StationVoice runs on a Linux computer and uses a local web application to manage announcements and schedules. At the scheduled times, the application prepares the announcement and sends audio to a radio via a DRA-36M interface. The radio transmits on the repeater's input frequency, and listens on the repeater's output frequency to determine when the repeater is "Busy".
+StationVoice runs on a Linux computer and uses a local web application to manage announcements and schedules. 
+At the scheduled times, the application prepares the announcement and sends audio to a radio via a 
+<a href="https://www.masterscommunications.com/products/radio-adapter/dra/dra36m.html" target="_blank">DRA-36M interface</a>. 
+The radio transmits on the repeater's input frequency, and listens on the repeater's output frequency to determine when the repeater is "Busy".
 
 See [Architecture](docs/architecture.md) for an overview.
 
 ## Getting started
 
 StationVoice is developed and tested on macOS without radio hardware and on 64-bit Linux for radio operation.
-It makes no effort to be compatible with othe operating systems, and likely will not work on anything that is not Linux-compatible.
+It makes no effort to be compatible with other operating systems, and likely will not work on anything that is not Linux-compatible.
 
 See these links for installing the hardware and software to run StationVoice:
 
@@ -85,7 +91,9 @@ See these links for installing the hardware and software to run StationVoice:
 
 ## Status
 
-StationVoice is an evolving project. The production radio configuration and hardware verification documented in this repository reflect testing and actual usage at the DVRA.
+StationVoice is an evolving project. The production radio configuration and hardware verification 
+documented in this repository reflect testing and current actual usage at the DVRA
+for its 2m and 440MHz repeaters.
 
 ## License
 [![License: GPL v3](https://img.shields.io/static/v1?label=License&message=GPL%20v3&color=blue)](https://gnu.org)
