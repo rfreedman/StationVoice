@@ -1,6 +1,6 @@
 [project]
 name = "stationvoice"
-version = "0.47.0"
+version = "0.48.0"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 description = "StationVoice - ham radio repeater announcements with Piper TTS speech, a FastAPI UI, scheduler, and DRA-36M radio control"

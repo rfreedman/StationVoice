@@ -53,17 +53,27 @@ It makes no effort to be compatible with othe operating systems, and likely will
 See these links for installing the hardware and software to run StationVoice:
 
 - [Installation and first run](docs/getting-started.md)
-- [Hardware and radio setup](docs/final-hardware/README.md)
+- [Hardware and radio setup](docs/hardware-setup.md)
 - [Radio backend details](docs/radio-backend.md)
 
 ## User documentation
 
 | Topic | Description |
 |---|---|
-| Creating Announcement | How to create text (TTS) and Audio (mp3) Announcements
+| [Creating announcements](docs/announcements.md) | How to create text (TTS) and Audio (mp3) Announcements |
 | [Scheduling announcements](docs/how-to-schedule.md) | Baselines, overlays, recurring schedules, and timing |
 | [Amateur Radio Newsline](docs/arnewsline.md) | Downloading, processing, and transmitting Newsline |
+| [Manual operation](docs/manual-operations.md) | Trigger now, busy status, and recovery after restarts |
 
+## Operating the station
+
+| Topic | Description |
+|---|---|
+| [Operations and deployment](docs/operations.md) | Deploying, systemd, remote access (Caddy + Tailscale), and restart behavior |
+| [Configuration reference](docs/configuration.md) | Every environment setting with defaults |
+| [Troubleshooting](docs/troubleshooting.md) | Symptom-first runbook for startup, transmit, COS, deploy, and UI issues |
+| [Backup and recovery](docs/backup-recovery.md) | What to back up, what regenerates, and how to restore |
+| [Security](docs/security.md) | Network exposure, accounts, sessions, and secrets handling |
 
 ## Developer documentation
 

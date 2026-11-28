@@ -1,0 +1,49 @@
+# Radio backend protocol
+
+Scheduled and manual fires talk to a **radio backend** selected by `RADIO_BACKEND`:
+
+- **`stub`** (default) — in-memory PTT/COS for dev and tests ([`StubRadio`](../app/radio.py)).
+- **`dra`** — A **DRA** (Digital Radio Adapter) is the USB box between the computer and one radio. This project uses the [Masters Communications **DRA-36M**](https://www.masterscommunications.com/products/radio-adapter/dra/dra36m.html). It plays the announcement into the radio and keys the transmitter. The setting `RADIO_BACKEND=dra` means the app is using those adapters ([`DraRadio`](../app/dra_radio.py)). Tested on Ubuntu 26.04.1 LTS. Radios have not been tried on macOS.
+
+The typed [`Radio`](../app/radio.py) protocol only requires `channel_busy()` and `set_ptt()`. Optional capabilities are expressed as `@runtime_checkable` Protocols with matching `as_*` helpers (e.g. `as_idle_credit(radio)`) — call sites use these helpers instead of `getattr`. A production DRA backend should implement the full extension set below; stub implements enough for tests and Mac UI work.
+
+UI “running” status after key-up is wired through [`transmit(..., on_ptt_keyed=...)`](../app/radio.py) — there is no radio proxy wrapper.
+
+## Required (Protocol)
+
+| Method | Semantics |
+| --- | --- |
+| `channel_busy() -> bool` | True when the repeater input is active (COS / carrier detect). Used for defer, clear hold, and last-chance gating. |
+| `set_ptt(keyed: bool) -> None` | Key or unkey PTT. `transmit()` always unkeys in `finally`. |
+
+## Optional capability Protocols
+
+Each optional extension is a `@runtime_checkable` Protocol in [`app/radio.py`](../app/radio.py) with a matching `as_*` helper. Call sites use the helper (e.g. `as_idle_credit(radio)`) to get the narrowed type or `None`.
+
+| Protocol | Method / attribute | Typical backend | Used for |
+| --- | --- | --- | --- |
+| `IdleCreditRadio` | `continuous_idle_seconds() -> float` | DRA | Seconds of continuous COS idle already accrued (background poll). Lets `channel_blocks_transmit()` skip a HID read once the clear hold is met. |
+| `ClearWaitRadio` | `wait_for_transmit_clear(*, clear_seconds, poll_seconds, deadline, now, sleep_fn, fail_fast_on_busy=False) -> bool` | DRA | Block until the channel has been idle for `clear_seconds`, or return False past `deadline`. Manual trigger retries and scheduled fires use this when `DRA_CLEAR_SECONDS` > 0. |
+| `CosSnapshotRadio` | `cos_defer_snapshot() -> tuple[bool \| None, float]` | DRA, stub | Last COS busy state and idle credit **without** opening HID (UI / SSE manual-trigger status). |
+| `UsbTransmitRadio` | `prepare_for_transmit()`, `begin_usb_transmit()`, `end_usb_transmit()`, `play_transmit_audio(chunks, *, lead_seconds)` | DRA | Full USB transmit session. When present, [`transmit()`](../app/radio.py) uses this instead of host `play_fn`. |
+| `UsbAbortRadio` | `usb_hid_present`, `transmit_abort_is_set()` | DRA | Detect USB loss mid-transmit; `usb_transmit_lost(radio)` maps RuntimeError → `TransmitAbortError`. |
+| `CosPollingRadio` | `warm_open_hid()`, `refresh_cos() -> bool`, `ptt_keyed` (property) | DRA | Background COS poll support. Keep CM119 HID open, read COS, skip sampling while keyed. |
+| `AudioReplugRadio` | `sync_audio_output_indices_if_changed(*, after_usb_event: bool = False) -> bool` | DRA | Refresh PortAudio output indices after USB replug. Called from startup and replug recovery. |
+
+PortAudio device enumeration helpers live in [`app/dra_portaudio.py`](../app/dra_portaudio.py); PCM write/aplay paths stay in [`app/dra_playback.py`](../app/dra_playback.py). COS sampling and idle credit live in [`app/dra_cos.py`](../app/dra_cos.py); the in-flight USB abort registry lives in [`app/dra_usb_session.py`](../app/dra_usb_session.py). [`DraRadio`](../app/dra_radio.py) delegates to those and keeps HID, PTT, and `from_config`.
+
+## Errors
+
+| Exception | Meaning |
+| --- | --- |
+| [`ChannelBusyError`](../app/radio_errors.py) | COS active immediately before PTT; do not key. Fire may defer or drop. |
+| [`TransmitAbortError`](../app/radio_errors.py) | Playback stopped early (e.g. DRA USB unplugged mid-transmit). Fire returns `FireOutcome.DROPPED_USB` for manual triggers. |
+
+## Implementing a new backend
+
+1. Implement at least the Protocol methods.
+2. For on-air use with clear hold and Trigger now UX, implement the optional Protocols that **DraRadio** provides (or document deliberate gaps).
+3. Register via [`create_radio_from_config()`](../app/radio.py) / startup in [`app/startup.py`](../app/startup.py).
+4. Run the full test suite with `RADIO_BACKEND=stub`; add targeted tests with fakes where hardware is required.
+
+See also [final hardware](final-hardware/README.md), [Linux host notes](linux-host.md), and [code review findings — DRA](code-review-findings.md).
